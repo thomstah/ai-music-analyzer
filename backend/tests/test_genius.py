@@ -34,6 +34,22 @@ async def test_search_song_raises_404_on_empty_hits():
 
 
 @pytest.mark.asyncio
+async def test_search_song_raises_502_on_api_error():
+    import httpx as _httpx
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_client = MagicMock()
+        mock_cls.return_value.__aenter__.return_value = mock_client
+        mock_client.get = AsyncMock(
+            side_effect=_httpx.HTTPStatusError(
+                "500 Server Error", request=MagicMock(), response=MagicMock()
+            )
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            await search_song("Song", "Artist")
+    assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
 async def test_fetch_lyrics_extracts_text_from_containers():
     html = """
     <html><body>

@@ -9,15 +9,19 @@ GENIUS_API_BASE = "https://api.genius.com"
 
 async def search_song(title: str, artist: str) -> dict:
     query = f"{title} {artist}"
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{GENIUS_API_BASE}/search",
-            params={"q": query},
-            headers={"Authorization": f"Bearer {settings.genius_access_token}"},
-        )
-        response.raise_for_status()
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{GENIUS_API_BASE}/search",
+                params={"q": query},
+                headers={"Authorization": f"Bearer {settings.genius_access_token}"},
+            )
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPStatusError:
+        raise HTTPException(status_code=502, detail="Genius API request failed")
 
-    hits = response.json()["response"]["hits"]
+    hits = data["response"]["hits"]
     if not hits:
         raise HTTPException(status_code=404, detail=f"Song '{title}' by '{artist}' not found on Genius")
 
@@ -26,13 +30,15 @@ async def search_song(title: str, artist: str) -> dict:
 
 
 async def fetch_lyrics(url: str) -> str:
-    async with httpx.AsyncClient(follow_redirects=True) as client:
-        response = await client.get(url)
-
-    if response.status_code != 200:
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            html = response.text
+    except httpx.HTTPStatusError:
         raise HTTPException(status_code=502, detail="Could not extract lyrics from Genius")
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
     containers = soup.find_all("div", attrs={"data-lyrics-container": "true"})
 
     if not containers:
