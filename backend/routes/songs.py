@@ -17,7 +17,7 @@ def _format_cached(song: dict) -> dict:
         "lyrics": song["lyrics"],
         "genius_id": song.get("genius_id"),
         "created_at": song.get("created_at"),
-        "interpretation": latest["content"] if latest else None,
+        "interpretation": latest.get("content") if latest else None,
     }
 
 
@@ -46,7 +46,15 @@ async def analyze(request: AnalyzeRequest):
     )
     supabase_service.store_interpretation(song["id"], interpretation, model_version)
 
-    return {**song, "interpretation": interpretation}
+    return {
+        "id": song["id"],
+        "title": song["title"],
+        "artist": song["artist"],
+        "lyrics": song["lyrics"],
+        "genius_id": song.get("genius_id"),
+        "created_at": song.get("created_at"),
+        "interpretation": interpretation,
+    }
 
 
 @router.get("/song/{song_id}")
