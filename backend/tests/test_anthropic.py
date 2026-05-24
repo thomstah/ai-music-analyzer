@@ -58,3 +58,15 @@ async def test_generate_interpretation_raises_502_after_two_failures():
             await generate_interpretation("Song", "Artist", "lyrics")
 
     assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_generate_interpretation_retries_on_wrong_schema():
+    wrong_schema = _make_response(json.dumps({"message": "I cannot analyze this"}))
+    good = _make_response(json.dumps(VALID_INTERPRETATION))
+
+    with patch("services.anthropic.anthropic.AsyncAnthropic") as mock_cls:
+        mock_cls.return_value.messages.create = AsyncMock(side_effect=[wrong_schema, good])
+        result, _ = await generate_interpretation("Song", "Artist", "lyrics")
+
+    assert result["overall_meaning"] == VALID_INTERPRETATION["overall_meaning"]
