@@ -27,6 +27,8 @@ def store_song(title: str, artist: str, lyrics: str, genius_id: Optional[int] = 
         .insert({"title": title, "artist": artist, "lyrics": lyrics, "genius_id": genius_id})
         .execute()
     )
+    if not result.data:
+        raise RuntimeError("Failed to insert song: no data returned")
     return result.data[0]
 
 
@@ -37,6 +39,8 @@ def store_interpretation(song_id: str, content: dict, model_version: str) -> dic
         .insert({"song_id": song_id, "content": content, "model_version": model_version})
         .execute()
     )
+    if not result.data:
+        raise RuntimeError("Failed to insert interpretation: no data returned")
     return result.data[0]
 
 

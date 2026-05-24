@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+import pytest
 from services.supabase import find_song, store_song, store_interpretation, get_song_by_id
 
 
@@ -54,3 +55,15 @@ def test_get_song_by_id_returns_song_when_found():
     with patch("services.supabase.get_client", return_value=_chain([song])):
         result = get_song_by_id("song-id")
     assert result["id"] == "song-id"
+
+
+def test_store_song_raises_on_empty_result():
+    with patch("services.supabase.get_client", return_value=_chain([])):
+        with pytest.raises(RuntimeError, match="Failed to insert song"):
+            store_song("Song", "Artist", "words")
+
+
+def test_store_interpretation_raises_on_empty_result():
+    with patch("services.supabase.get_client", return_value=_chain([])):
+        with pytest.raises(RuntimeError, match="Failed to insert interpretation"):
+            store_interpretation("song-id", {}, "claude-sonnet-4-6")
