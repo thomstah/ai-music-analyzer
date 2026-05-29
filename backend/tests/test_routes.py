@@ -15,7 +15,13 @@ def test_discourse_excerpt_schema_validates():
         metadata={"subreddit": "r/hiphopheads"},
     )
     assert exc.source == "reddit"
+    assert exc.text == "This is a great analysis of the song."
     assert exc.url == "https://reddit.com/r/hiphopheads/comments/abc"
+    assert exc.metadata == {"subreddit": "r/hiphopheads"}
+
+    # url defaults to None when omitted
+    exc_no_url = DiscourseExcerpt(source="genius", text="annotation", metadata={"lyric_fragment": "lean"})
+    assert exc_no_url.url is None
 
 
 def test_song_response_accepts_community_commentary():

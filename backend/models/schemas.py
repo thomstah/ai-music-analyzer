@@ -24,7 +24,7 @@ class DiscourseExcerpt(BaseModel):
     source: str
     text: str
     url: Optional[str] = None
-    metadata: dict
+    metadata: dict = {}
 
 
 class SongResponse(BaseModel):
