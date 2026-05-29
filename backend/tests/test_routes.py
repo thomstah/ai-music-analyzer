@@ -1,10 +1,28 @@
 import pytest
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from main import app
 from models.schemas import DiscourseExcerpt, SongResponse
 
 client = TestClient(app)
+
+MOCK_DISCOURSE_EXCERPTS = [
+    {
+        "source": "reddit",
+        "text": "This song is about Drake processing his emotions.",
+        "url": "https://reddit.com/r/hiphopheads/comments/abc",
+        "metadata": {"subreddit": "r/hiphopheads"},
+    }
+]
+
+
+def _fresh_scraped_at():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _stale_scraped_at():
+    return (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
 
 def test_discourse_excerpt_schema_validates():
@@ -58,7 +76,9 @@ def test_health_returns_ok():
 
 
 def test_analyze_returns_cached_result_when_song_exists():
-    with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB):
+    fresh_row = {"id": "disc-1", "song_id": "song-123", "excerpts": [], "scraped_at": _fresh_scraped_at()}
+    with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB), \
+         patch("routes.songs.supabase_service.find_discourse", return_value=fresh_row):
         response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
     assert response.status_code == 200
     data = response.json()
@@ -80,10 +100,13 @@ def test_analyze_runs_full_flow_when_not_cached():
                return_value={"url": "https://genius.com/song", "genius_id": 12345}), \
          patch("routes.songs.genius_service.fetch_lyrics", new_callable=AsyncMock,
                return_value="lyrics text"), \
+         patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
+               return_value=[]), \
          patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock,
                return_value=(MOCK_INTERPRETATION, "claude-sonnet-4-6")), \
          patch("routes.songs.supabase_service.store_song", return_value=stored_song), \
-         patch("routes.songs.supabase_service.store_interpretation", return_value={}):
+         patch("routes.songs.supabase_service.store_interpretation", return_value={}), \
+         patch("routes.songs.supabase_service.store_discourse", return_value={}):
         response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
     assert response.status_code == 200
     data = response.json()
@@ -118,3 +141,73 @@ def test_get_song_by_id_returns_song_when_found():
         response = client.get("/song/song-123")
     assert response.status_code == 200
     assert response.json()["id"] == "song-123"
+
+
+def test_analyze_returns_community_commentary_on_new_song():
+    stored_song = {
+        "id": "new-song-id",
+        "title": "Passionfruit",
+        "artist": "Drake",
+        "lyrics": "lyrics text",
+        "genius_id": 12345,
+        "created_at": "2026-05-29T00:00:00",
+    }
+    with patch("routes.songs.supabase_service.find_song", return_value=None), \
+         patch("routes.songs.genius_service.search_song", new_callable=AsyncMock,
+               return_value={"url": "https://genius.com/song", "genius_id": 12345}), \
+         patch("routes.songs.genius_service.fetch_lyrics", new_callable=AsyncMock,
+               return_value="lyrics text"), \
+         patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
+               return_value=MOCK_DISCOURSE_EXCERPTS), \
+         patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock,
+               return_value=(MOCK_INTERPRETATION, "claude-sonnet-4-6")), \
+         patch("routes.songs.supabase_service.store_song", return_value=stored_song), \
+         patch("routes.songs.supabase_service.store_interpretation", return_value={}), \
+         patch("routes.songs.supabase_service.store_discourse", return_value={}):
+        response = client.post("/analyze", json={"title": "Passionfruit", "artist": "Drake"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["community_commentary"] is not None
+    assert data["community_commentary"][0]["source"] == "reddit"
+
+
+def test_analyze_returns_fresh_cached_discourse_for_cached_song():
+    fresh_row = {"id": "disc-1", "song_id": "song-123", "excerpts": MOCK_DISCOURSE_EXCERPTS, "scraped_at": _fresh_scraped_at()}
+    with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB), \
+         patch("routes.songs.supabase_service.find_discourse", return_value=fresh_row), \
+         patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock) as mock_fetch:
+        response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
+
+    assert response.status_code == 200
+    mock_fetch.assert_not_called()
+    data = response.json()
+    assert data["community_commentary"][0]["source"] == "reddit"
+
+
+def test_analyze_refreshes_stale_discourse_for_cached_song():
+    stale_row = {"id": "disc-1", "song_id": "song-123", "excerpts": [], "scraped_at": _stale_scraped_at()}
+    with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB), \
+         patch("routes.songs.supabase_service.find_discourse", return_value=stale_row), \
+         patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
+               return_value=MOCK_DISCOURSE_EXCERPTS) as mock_fetch, \
+         patch("routes.songs.supabase_service.store_discourse", return_value={}):
+        response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
+
+    assert response.status_code == 200
+    mock_fetch.assert_called_once()
+    data = response.json()
+    assert data["community_commentary"][0]["source"] == "reddit"
+
+
+def test_analyze_scrapes_discourse_when_none_cached_for_cached_song():
+    with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB), \
+         patch("routes.songs.supabase_service.find_discourse", return_value=None), \
+         patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
+               return_value=MOCK_DISCOURSE_EXCERPTS), \
+         patch("routes.songs.supabase_service.store_discourse", return_value={}):
+        response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["community_commentary"][0]["source"] == "reddit"
