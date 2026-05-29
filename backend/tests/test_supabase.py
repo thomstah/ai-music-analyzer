@@ -101,6 +101,7 @@ def test_store_discourse_deletes_existing_before_insert():
     client.table.return_value.insert.return_value.execute.return_value.data = [inserted]
     with patch("services.supabase.get_client", return_value=client):
         store_discourse("song-id", [])
+    client.table.return_value.delete.return_value.eq.assert_called_once_with("song_id", "song-id")
     client.table.return_value.delete.return_value.eq.return_value.execute.assert_called_once()
 
 
