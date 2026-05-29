@@ -84,6 +84,7 @@ def test_analyze_returns_cached_result_when_song_exists():
     data = response.json()
     assert data["id"] == "song-123"
     assert data["interpretation"]["emotional_tone"] == "hopeful"
+    assert "community_commentary" in data
 
 
 def test_analyze_runs_full_flow_when_not_cached():
@@ -168,7 +169,7 @@ def test_analyze_returns_community_commentary_on_new_song():
 
     assert response.status_code == 200
     data = response.json()
-    assert data["community_commentary"] is not None
+    assert len(data["community_commentary"]) == 1
     assert data["community_commentary"][0]["source"] == "reddit"
 
 

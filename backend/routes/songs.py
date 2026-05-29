@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Query
 from models.schemas import AnalyzeRequest
@@ -5,6 +6,8 @@ import services.supabase as supabase_service
 import services.genius as genius_service
 import services.anthropic as anthropic_service
 import services.discourse as discourse_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -26,7 +29,10 @@ def _format_cached(song: dict) -> dict:
 
 
 def _is_discourse_fresh(row: dict) -> bool:
-    scraped_at = datetime.fromisoformat(row["scraped_at"].replace("Z", "+00:00"))
+    scraped_at_str = row.get("scraped_at")
+    if not scraped_at_str:
+        return False
+    scraped_at = datetime.fromisoformat(scraped_at_str.replace("Z", "+00:00"))
     return datetime.now(timezone.utc) - scraped_at < timedelta(days=DISCOURSE_TTL_DAYS)
 
 
@@ -51,7 +57,10 @@ async def analyze(request: AnalyzeRequest):
             excerpts = await discourse_service.fetch_discourse(
                 cached.get("genius_id"), request.title, request.artist
             )
-            supabase_service.store_discourse(song_id, excerpts)
+            try:
+                supabase_service.store_discourse(song_id, excerpts)
+            except Exception as exc:
+                logger.warning("Failed to persist discourse: %s", exc)
         return {**_format_cached(cached), "community_commentary": excerpts}
 
     genius_data = await genius_service.search_song(request.title, request.artist)
@@ -66,7 +75,10 @@ async def analyze(request: AnalyzeRequest):
         request.title, request.artist, lyrics, genius_data.get("genius_id")
     )
     supabase_service.store_interpretation(song["id"], interpretation, model_version)
-    supabase_service.store_discourse(song["id"], excerpts)
+    try:
+        supabase_service.store_discourse(song["id"], excerpts)
+    except Exception as exc:
+        logger.warning("Failed to persist discourse: %s", exc)
 
     return {
         "id": song["id"],
