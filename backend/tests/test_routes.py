@@ -2,8 +2,30 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from main import app
+from models.schemas import DiscourseExcerpt, SongResponse
 
 client = TestClient(app)
+
+
+def test_discourse_excerpt_schema_validates():
+    exc = DiscourseExcerpt(
+        source="reddit",
+        text="This is a great analysis of the song.",
+        url="https://reddit.com/r/hiphopheads/comments/abc",
+        metadata={"subreddit": "r/hiphopheads"},
+    )
+    assert exc.source == "reddit"
+    assert exc.url == "https://reddit.com/r/hiphopheads/comments/abc"
+
+
+def test_song_response_accepts_community_commentary():
+    exc = DiscourseExcerpt(source="genius", text="annotation", url=None, metadata={"lyric_fragment": "lean"})
+    resp = SongResponse(
+        id="1", title="Song", artist="Artist", lyrics="words", community_commentary=[exc]
+    )
+    assert len(resp.community_commentary) == 1
+    assert resp.community_commentary[0].source == "genius"
+
 
 MOCK_INTERPRETATION = {
     "overall_meaning": "A song about life.",
