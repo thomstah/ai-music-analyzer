@@ -40,6 +40,8 @@ async def _fetch_reddit(title: str, artist: str) -> list[dict]:
                 subreddit = td.get("subreddit_name_prefixed", "r/unknown")
                 post_id = td.get("id")
                 thread_subreddit = td.get("subreddit")
+                if not post_id or not thread_subreddit:
+                    continue
                 thread_url = f"https://reddit.com{td.get('permalink', '')}"
 
                 comments_resp = await client.get(

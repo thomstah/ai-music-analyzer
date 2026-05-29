@@ -26,6 +26,7 @@ MOCK_REDDIT_COMMENTS = [
                 {"data": {"body": "Short"}},
                 {"data": {"body": "Another great comment about the themes in this track and what they mean."}},
                 {"data": {"body": "[deleted]"}},
+                {"data": {"body": "[removed]"}},
             ]
         }
     },
@@ -120,6 +121,7 @@ async def test_fetch_reddit_filters_short_and_deleted_comments():
     texts = [e["text"] for e in result]
     assert "Short" not in texts
     assert "[deleted]" not in texts
+    assert "[removed]" not in texts
 
 
 @pytest.mark.asyncio
