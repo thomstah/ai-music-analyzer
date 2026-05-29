@@ -1,5 +1,6 @@
 import json
 import anthropic
+from typing import Optional
 from fastapi import HTTPException
 from config import settings
 
@@ -20,9 +21,37 @@ def _is_valid_interpretation(data: object) -> bool:
     return isinstance(data, dict) and REQUIRED_KEYS.issubset(data.keys())
 
 
-async def generate_interpretation(title: str, artist: str, lyrics: str) -> tuple[dict, str]:
+def _build_user_message(title: str, artist: str, lyrics: str, discourse: Optional[list[dict]]) -> str:
+    message = f'Song: "{title}" by {artist}\n\nLyrics:\n{lyrics}'
+    if not discourse:
+        return message
+
+    lines = []
+    for exc in discourse:
+        source = exc.get("source", "")
+        text = exc.get("text", "")
+        metadata = exc.get("metadata", {})
+        if source == "reddit":
+            subreddit = metadata.get("subreddit", "")
+            lines.append(f'[reddit] {subreddit}: "{text}"')
+        elif source == "genius":
+            fragment = metadata.get("lyric_fragment", "")
+            lines.append(f'[genius] "{fragment}" → "{text}"')
+
+    if lines:
+        message += "\n\nCommunity Commentary (Reddit threads and Genius annotations — use these to inform your interpretation):\n"
+        message += "\n".join(lines)
+    return message
+
+
+async def generate_interpretation(
+    title: str,
+    artist: str,
+    lyrics: str,
+    discourse: Optional[list[dict]] = None,
+) -> tuple[dict, str]:
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-    user_message = f'Song: "{title}" by {artist}\n\nLyrics:\n{lyrics}'
+    user_message = _build_user_message(title, artist, lyrics, discourse)
 
     response = await client.messages.create(
         model=MODEL,
