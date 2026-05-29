@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 import pytest
-from services.supabase import find_song, store_song, store_interpretation, get_song_by_id
+from services.supabase import find_song, store_song, store_interpretation, get_song_by_id, find_discourse, store_discourse
 
 
 def _chain(data: list) -> MagicMock:
@@ -67,3 +67,46 @@ def test_store_interpretation_raises_on_empty_result():
     with patch("services.supabase.get_client", return_value=_chain([])):
         with pytest.raises(RuntimeError, match="Failed to insert interpretation"):
             store_interpretation("song-id", {}, "claude-sonnet-4-6")
+
+
+def test_find_discourse_returns_none_when_not_found():
+    client = MagicMock()
+    client.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+    with patch("services.supabase.get_client", return_value=client):
+        result = find_discourse("song-id")
+    assert result is None
+
+
+def test_find_discourse_returns_row_when_found():
+    row = {"id": "disc-1", "song_id": "song-id", "excerpts": [], "scraped_at": "2026-05-29T00:00:00+00:00"}
+    client = MagicMock()
+    client.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [row]
+    with patch("services.supabase.get_client", return_value=client):
+        result = find_discourse("song-id")
+    assert result["id"] == "disc-1"
+
+
+def test_store_discourse_returns_inserted_row():
+    inserted = {"id": "disc-new", "song_id": "song-id", "excerpts": [], "scraped_at": "2026-05-29T00:00:00+00:00"}
+    client = MagicMock()
+    client.table.return_value.insert.return_value.execute.return_value.data = [inserted]
+    with patch("services.supabase.get_client", return_value=client):
+        result = store_discourse("song-id", [])
+    assert result["id"] == "disc-new"
+
+
+def test_store_discourse_deletes_existing_before_insert():
+    inserted = {"id": "disc-new", "song_id": "song-id", "excerpts": [], "scraped_at": "2026-05-29T00:00:00+00:00"}
+    client = MagicMock()
+    client.table.return_value.insert.return_value.execute.return_value.data = [inserted]
+    with patch("services.supabase.get_client", return_value=client):
+        store_discourse("song-id", [])
+    client.table.return_value.delete.return_value.eq.return_value.execute.assert_called_once()
+
+
+def test_store_discourse_raises_on_empty_result():
+    client = MagicMock()
+    client.table.return_value.insert.return_value.execute.return_value.data = []
+    with patch("services.supabase.get_client", return_value=client):
+        with pytest.raises(RuntimeError, match="Failed to insert discourse"):
+            store_discourse("song-id", [])

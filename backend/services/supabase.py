@@ -54,3 +54,28 @@ def get_song_by_id(song_id: str) -> Optional[dict]:
         .execute()
     )
     return result.data[0] if result.data else None
+
+
+def find_discourse(song_id: str) -> Optional[dict]:
+    client = get_client()
+    result = (
+        client.table("discourse")
+        .select("*")
+        .eq("song_id", song_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def store_discourse(song_id: str, excerpts: list[dict]) -> dict:
+    client = get_client()
+    client.table("discourse").delete().eq("song_id", song_id).execute()
+    result = (
+        client.table("discourse")
+        .insert({"song_id": song_id, "excerpts": excerpts})
+        .execute()
+    )
+    if not result.data:
+        raise RuntimeError("Failed to insert discourse: no data returned")
+    return result.data[0]
