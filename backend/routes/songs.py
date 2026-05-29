@@ -60,7 +60,7 @@ async def analyze(request: AnalyzeRequest):
             try:
                 supabase_service.store_discourse(song_id, excerpts)
             except Exception as exc:
-                logger.warning("Failed to persist discourse: %s", exc)
+                logger.warning("Failed to persist discourse: %s", exc, exc_info=True)
         return {**_format_cached(cached), "community_commentary": excerpts}
 
     genius_data = await genius_service.search_song(request.title, request.artist)

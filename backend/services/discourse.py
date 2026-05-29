@@ -68,7 +68,7 @@ async def _fetch_reddit(title: str, artist: str) -> list[dict]:
                         })
                         count += 1
     except Exception as exc:
-        logger.warning("Reddit scraping failed: %s", exc)
+        logger.warning("Reddit scraping failed: %s", exc, exc_info=True)
     return excerpts
 
 
@@ -101,5 +101,5 @@ async def _fetch_genius_annotations(genius_id: int) -> list[dict]:
                         "metadata": {"lyric_fragment": ref.get("fragment", "")},
                     })
     except Exception as exc:
-        logger.warning("Genius annotations fetch failed: %s", exc)
+        logger.warning("Genius annotations fetch failed: %s", exc, exc_info=True)
     return excerpts
