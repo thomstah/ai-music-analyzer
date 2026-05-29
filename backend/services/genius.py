@@ -25,7 +25,12 @@ async def search_song(title: str, artist: str) -> dict:
     if not hits:
         raise HTTPException(status_code=404, detail=f"Song '{title}' by '{artist}' not found on Genius")
 
-    hit = hits[0]["result"]
+    artist_lower = artist.lower()
+    hit = next(
+        (h["result"] for h in hits
+         if artist_lower in h["result"].get("primary_artist", {}).get("name", "").lower()),
+        hits[0]["result"],
+    )
     return {"url": hit["url"], "genius_id": hit["id"]}
 
 
