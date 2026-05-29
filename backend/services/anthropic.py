@@ -30,6 +30,8 @@ def _build_user_message(title: str, artist: str, lyrics: str, discourse: Optiona
     for exc in discourse:
         source = exc.get("source", "")
         text = exc.get("text", "")
+        if not text:
+            continue
         metadata = exc.get("metadata", {})
         if source == "reddit":
             subreddit = metadata.get("subreddit", "")
@@ -37,6 +39,8 @@ def _build_user_message(title: str, artist: str, lyrics: str, discourse: Optiona
         elif source == "genius":
             fragment = metadata.get("lyric_fragment", "")
             lines.append(f'[genius] "{fragment}" → "{text}"')
+        else:
+            lines.append(f'[{source}] "{text}"')
 
     if lines:
         message += "\n\nCommunity Commentary (Reddit threads and Genius annotations — use these to inform your interpretation):\n"
