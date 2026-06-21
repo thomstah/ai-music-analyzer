@@ -1,7 +1,6 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { SearchResult, Song } from '@/types/song';
 import { analyzeSong } from '@/lib/api';
 
@@ -43,7 +42,8 @@ export default function SearchResultsList({ results }: { results: SearchResult[]
           className="w-full flex items-center gap-4 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-60 rounded-lg px-4 py-3 transition-colors text-left"
         >
           {result.thumbnail ? (
-            <Image
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               src={result.thumbnail}
               alt=""
               width={40}
