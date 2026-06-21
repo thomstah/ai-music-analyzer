@@ -37,11 +37,8 @@ def _is_discourse_fresh(row: dict) -> bool:
 
 
 @router.get("/songs/search")
-async def search_cache(title: str = Query(...), artist: str = Query(...)):
-    song = supabase_service.find_song(title, artist)
-    if not song:
-        return {"found": False, "song": None}
-    return {"found": True, "song": _format_cached(song)}
+async def search_suggestions(q: str = Query(..., min_length=1, max_length=200)):
+    return await genius_service.search_songs(q)
 
 
 @router.post("/analyze")

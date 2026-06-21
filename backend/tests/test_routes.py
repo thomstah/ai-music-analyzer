@@ -115,20 +115,26 @@ def test_analyze_runs_full_flow_when_not_cached():
     assert data["interpretation"]["emotional_tone"] == "hopeful"
 
 
-def test_songs_search_returns_not_found_when_no_match():
-    with patch("routes.songs.supabase_service.find_song", return_value=None):
-        response = client.get("/songs/search?title=Unknown&artist=Nobody")
+def test_songs_search_returns_suggestions():
+    suggestions = [
+        {"title": "Bohemian Rhapsody", "artist": "Queen", "genius_id": 1, "thumbnail": None}
+    ]
+    with patch("routes.songs.genius_service.search_songs", return_value=suggestions):
+        response = client.get("/songs/search?q=bohemian+rhapsody")
     assert response.status_code == 200
-    assert response.json() == {"found": False, "song": None}
+    assert response.json()[0]["title"] == "Bohemian Rhapsody"
 
 
-def test_songs_search_returns_song_when_found():
-    with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB):
-        response = client.get("/songs/search?title=Bohemian+Rhapsody&artist=Queen")
+def test_songs_search_returns_empty_list_when_no_results():
+    with patch("routes.songs.genius_service.search_songs", return_value=[]):
+        response = client.get("/songs/search?q=xyznotareal")
     assert response.status_code == 200
-    data = response.json()
-    assert data["found"] is True
-    assert data["song"]["id"] == "song-123"
+    assert response.json() == []
+
+
+def test_songs_search_requires_q_param():
+    response = client.get("/songs/search")
+    assert response.status_code == 422
 
 
 def test_get_song_by_id_returns_404_when_not_found():

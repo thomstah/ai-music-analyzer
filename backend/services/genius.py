@@ -58,7 +58,35 @@ async def fetch_lyrics(url: str) -> str:
     return normalize_lyrics("\n".join(parts))
 
 
+async def search_songs(query: str, limit: int = 8) -> list[dict]:
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{GENIUS_API_BASE}/search",
+                params={"q": query},
+                headers={"Authorization": f"Bearer {settings.genius_access_token}"},
+            )
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        return []
+
+    hits = data["response"]["hits"][:limit]
+    return [
+        {
+            "title": h["result"]["title"],
+            "artist": h["result"]["primary_artist"]["name"],
+            "genius_id": h["result"]["id"],
+            "thumbnail": h["result"].get("song_art_image_thumbnail_url"),
+        }
+        for h in hits
+        if h.get("type") == "song"
+    ]
+
+
 def normalize_lyrics(lyrics: str) -> str:
-    cleaned = re.sub(r"\[.*?\]", "", lyrics)
+    # Strip Genius UI boilerplate: e.g. "67 ContributorsTranslations...Lyrics"
+    cleaned = re.sub(r"\d+\s*Contributor\w*[^\n]*\n?", "", lyrics)
+    cleaned = re.sub(r"\[.*?\]", "", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()

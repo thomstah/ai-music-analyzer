@@ -34,3 +34,10 @@ export interface TrendingSong {
   artist: string;
   request_count: number;
 }
+
+export interface SearchResult {
+  title: string;
+  artist: string;
+  genius_id: number;
+  thumbnail: string | null;
+}

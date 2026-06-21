@@ -69,7 +69,7 @@ export default function SongPage() {
             />
           </div>
           {/* Analysis panel — comes first visually on mobile, sticky on desktop */}
-          <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6">
+          <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
             <AnalysisPanel
               interpretation={song.interpretation}
               commentary={song.community_commentary}
