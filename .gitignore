@@ -6,3 +6,6 @@ __pycache__/
 .vscode/
 .idea/
 venv/
+.superpowers/
+frontend/.next/
+frontend/node_modules/
