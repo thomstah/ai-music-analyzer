@@ -15,19 +15,22 @@ export default function SongPage() {
   useEffect(() => {
     const cached = sessionStorage.getItem(`song-${id}`);
     if (cached) {
-      setSong(JSON.parse(cached) as Song);
-      setLoading(false);
-      return;
+      try {
+        setSong(JSON.parse(cached) as Song);
+        setLoading(false);
+        return;
+      } catch {
+        // malformed cache — fall through to network fetch
+      }
     }
-    getSongById(id).then(data => {
-      setSong(data);
-      setLoading(false);
-    });
+    getSongById(id)
+      .then(data => { setSong(data); setLoading(false); })
+      .catch(() => setLoading(false));
   }, [id]);
 
-  function handleLineSelect(breakdown: LyricBreakdown | null) {
+  function handleLineSelect(breakdown: LyricBreakdown | null, rawLine: string | null) {
     setSelectedBreakdown(breakdown);
-    setSelectedLyric(breakdown?.lyric ?? null);
+    setSelectedLyric(rawLine);
   }
 
   if (loading) {
@@ -57,11 +60,11 @@ export default function SongPage() {
           </div>
           {/* Analysis placeholder — comes first visually on mobile, sticky on desktop */}
           <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6">
-            <p className="text-neutral-500 text-sm italic">
-              {selectedBreakdown
-                ? null
-                : 'Click an underlined lyric to see Claude\'s breakdown.'}
-            </p>
+            {!selectedBreakdown && (
+              <p className="text-neutral-500 text-sm italic">
+                {"Click an underlined lyric to see Claude's breakdown."}
+              </p>
+            )}
           </div>
         </div>
       ) : (

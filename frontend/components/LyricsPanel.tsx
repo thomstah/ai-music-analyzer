@@ -4,7 +4,7 @@ import { LyricBreakdown } from '@/types/song';
 interface Props {
   lyrics: string;
   breakdowns: LyricBreakdown[];
-  onLineSelect: (breakdown: LyricBreakdown | null) => void;
+  onLineSelect: (breakdown: LyricBreakdown | null, rawLine: string | null) => void;
   selectedLyric: string | null;
 }
 
@@ -32,7 +32,7 @@ export default function LyricsPanel({ lyrics, breakdowns, onLineSelect, selected
         return (
           <p
             key={i}
-            onClick={() => onLineSelect(hasBreakdown ? bd : null)}
+            onClick={() => onLineSelect(hasBreakdown ? bd : null, line.trim() || null)}
             className={[
               'px-2 py-0.5 rounded transition-colors',
               line.trim() === '' ? 'h-5' : 'cursor-pointer',
