@@ -47,16 +47,20 @@ export default function AnalysisPanel({ interpretation, commentary, selectedBrea
           Overall Meaning
         </p>
         <p className="text-neutral-300 text-sm leading-relaxed">
-          {summaryExpanded || !truncated ? summary : summary.slice(0, 240) + '…'}
-          {truncated && (
-            <button
-              onClick={() => setSummaryExpanded(v => !v)}
-              className="text-purple-400 text-xs ml-1 hover:underline"
-            >
-              {summaryExpanded ? 'less' : 'more'}
-            </button>
-          )}
+          {summaryExpanded || !truncated
+            ? summary
+            : summary.slice(0, summary.lastIndexOf(' ', 240)) + '…'}
         </p>
+        {truncated && (
+          <button
+            onClick={() => setSummaryExpanded(v => !v)}
+            aria-expanded={summaryExpanded}
+            aria-label={summaryExpanded ? 'Show less of Overall Meaning' : 'Show more of Overall Meaning'}
+            className="text-purple-400 text-xs hover:underline mt-1"
+          >
+            {summaryExpanded ? 'less' : 'more'}
+          </button>
+        )}
       </div>
 
       {/* Selected lyric breakdown */}
@@ -77,7 +81,7 @@ export default function AnalysisPanel({ interpretation, commentary, selectedBrea
           </p>
           <div className="space-y-3">
             {commentary.map((exc, i) => (
-              <div key={i} className="bg-neutral-900 rounded-lg p-3 border border-neutral-800">
+              <div key={`${exc.source}-${i}`} className="bg-neutral-900 rounded-lg p-3 border border-neutral-800">
                 <p className="text-xs text-neutral-500 mb-1 uppercase tracking-wide font-medium">
                   {exc.source}
                 </p>

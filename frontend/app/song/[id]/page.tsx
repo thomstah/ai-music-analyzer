@@ -6,6 +6,18 @@ import { getSongById } from '@/lib/api';
 import LyricsPanel from '@/components/LyricsPanel';
 import AnalysisPanel from '@/components/AnalysisPanel';
 
+function parseCachedSong(json: string): Song | null {
+  try {
+    const data = JSON.parse(json) as Record<string, unknown>;
+    if (typeof data?.id === 'string' && typeof data?.title === 'string') {
+      return data as unknown as Song;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export default function SongPage() {
   const { id } = useParams<{ id: string }>();
   const [song, setSong] = useState<Song | null>(null);
@@ -15,14 +27,11 @@ export default function SongPage() {
 
   useEffect(() => {
     const cached = sessionStorage.getItem(`song-${id}`);
-    if (cached) {
-      try {
-        setSong(JSON.parse(cached) as Song);
-        setLoading(false);
-        return;
-      } catch {
-        // malformed cache — fall through to network fetch
-      }
+    const fromCache = cached ? parseCachedSong(cached) : null;
+    if (fromCache) {
+      setSong(fromCache);
+      setLoading(false);
+      return;
     }
     getSongById(id)
       .then(data => { setSong(data); setLoading(false); })
