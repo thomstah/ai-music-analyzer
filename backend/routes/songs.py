@@ -101,5 +101,5 @@ async def get_song(song_id: str):
 
 
 @router.get("/songs/trending")
-def trending(limit: int = Query(default=10, ge=1, le=50)):
+async def trending(limit: int = Query(default=10, ge=1, le=50)):
     return supabase_service.get_trending(limit)

@@ -227,3 +227,13 @@ def test_trending_returns_empty_list_when_no_songs():
         response = client.get("/songs/trending")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_trending_rejects_limit_below_minimum():
+    response = client.get("/songs/trending?limit=0")
+    assert response.status_code == 422
+
+
+def test_trending_rejects_limit_above_maximum():
+    response = client.get("/songs/trending?limit=51")
+    assert response.status_code == 422

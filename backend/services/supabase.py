@@ -1,6 +1,9 @@
+import logging
 from supabase import create_client, Client
 from config import settings
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 def get_client() -> Client:
@@ -20,7 +23,10 @@ def find_song(title: str, artist: str) -> Optional[dict]:
     if not result.data:
         return None
     song = result.data[0]
-    client.table("songs").update({"request_count": song.get("request_count", 0) + 1}).eq("id", song["id"]).execute()
+    try:
+        client.table("songs").update({"request_count": song.get("request_count", 0) + 1}).eq("id", song["id"]).execute()
+    except Exception as exc:
+        logger.warning("Failed to increment request_count for song %s: %s", song["id"], exc)
     return song
 
 
@@ -81,7 +87,7 @@ def get_trending(limit: int = 10) -> list[dict]:
         .limit(limit)
         .execute()
     )
-    return result.data
+    return result.data or []
 
 
 def store_discourse(song_id: str, excerpts: list[dict]) -> dict:
