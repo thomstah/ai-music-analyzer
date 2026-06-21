@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { Song, LyricBreakdown } from '@/types/song';
 import { getSongById } from '@/lib/api';
 import LyricsPanel from '@/components/LyricsPanel';
+import AnalysisPanel from '@/components/AnalysisPanel';
 
 export default function SongPage() {
   const { id } = useParams<{ id: string }>();
@@ -58,13 +59,13 @@ export default function SongPage() {
               selectedLyric={selectedLyric}
             />
           </div>
-          {/* Analysis placeholder — comes first visually on mobile, sticky on desktop */}
+          {/* Analysis panel — comes first visually on mobile, sticky on desktop */}
           <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6">
-            {!selectedBreakdown && (
-              <p className="text-neutral-500 text-sm italic">
-                {"Click an underlined lyric to see Claude's breakdown."}
-              </p>
-            )}
+            <AnalysisPanel
+              interpretation={song.interpretation}
+              commentary={song.community_commentary}
+              selectedBreakdown={selectedBreakdown}
+            />
           </div>
         </div>
       ) : (
