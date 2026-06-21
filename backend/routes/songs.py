@@ -98,3 +98,8 @@ async def get_song(song_id: str):
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
     return _format_cached(song)
+
+
+@router.get("/songs/trending")
+def trending(limit: int = Query(default=10, ge=1, le=50)):
+    return supabase_service.get_trending(limit)

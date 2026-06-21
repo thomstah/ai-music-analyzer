@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 import pytest
-from services.supabase import find_song, store_song, store_interpretation, get_song_by_id, find_discourse, store_discourse
+from services.supabase import find_song, store_song, store_interpretation, get_song_by_id, find_discourse, store_discourse, get_trending
 
 
 def _chain(data: list) -> MagicMock:
@@ -111,3 +111,35 @@ def test_store_discourse_raises_on_empty_result():
     with patch("services.supabase.get_client", return_value=client):
         with pytest.raises(RuntimeError, match="Failed to insert discourse"):
             store_discourse("song-id", [])
+
+
+def test_find_song_increments_request_count_on_cache_hit():
+    song = {"id": "abc", "title": "Bohemian Rhapsody", "artist": "Queen", "request_count": 5, "interpretations": []}
+    client = MagicMock()
+    client.table.return_value.select.return_value.ilike.return_value.ilike.return_value.limit.return_value.execute.return_value.data = [song]
+    with patch("services.supabase.get_client", return_value=client):
+        result = find_song("Bohemian Rhapsody", "Queen")
+    client.table.return_value.update.assert_called_once_with({"request_count": 6})
+    client.table.return_value.update.return_value.eq.assert_called_once_with("id", "abc")
+    assert result["id"] == "abc"
+
+
+def test_get_trending_returns_songs_ordered_by_count():
+    songs = [
+        {"id": "a", "title": "Hit Song", "artist": "Artist A", "request_count": 100},
+        {"id": "b", "title": "Another Hit", "artist": "Artist B", "request_count": 50},
+    ]
+    client = MagicMock()
+    client.table.return_value.select.return_value.order.return_value.limit.return_value.execute.return_value.data = songs
+    with patch("services.supabase.get_client", return_value=client):
+        result = get_trending(10)
+    assert result[0]["request_count"] == 100
+    assert result[1]["request_count"] == 50
+
+
+def test_get_trending_returns_empty_list_when_no_songs():
+    client = MagicMock()
+    client.table.return_value.select.return_value.order.return_value.limit.return_value.execute.return_value.data = []
+    with patch("services.supabase.get_client", return_value=client):
+        result = get_trending(10)
+    assert result == []

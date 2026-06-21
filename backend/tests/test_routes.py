@@ -212,3 +212,18 @@ def test_analyze_scrapes_discourse_when_none_cached_for_cached_song():
     assert response.status_code == 200
     data = response.json()
     assert data["community_commentary"][0]["source"] == "reddit"
+
+
+def test_trending_returns_songs():
+    songs = [{"id": "a", "title": "Hit Song", "artist": "Artist", "request_count": 100}]
+    with patch("routes.songs.supabase_service.get_trending", return_value=songs):
+        response = client.get("/songs/trending?limit=10")
+    assert response.status_code == 200
+    assert response.json()[0]["request_count"] == 100
+
+
+def test_trending_returns_empty_list_when_no_songs():
+    with patch("routes.songs.supabase_service.get_trending", return_value=[]):
+        response = client.get("/songs/trending")
+    assert response.status_code == 200
+    assert response.json() == []

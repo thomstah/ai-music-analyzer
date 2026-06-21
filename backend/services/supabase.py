@@ -17,7 +17,11 @@ def find_song(title: str, artist: str) -> Optional[dict]:
         .limit(1)
         .execute()
     )
-    return result.data[0] if result.data else None
+    if not result.data:
+        return None
+    song = result.data[0]
+    client.table("songs").update({"request_count": song.get("request_count", 0) + 1}).eq("id", song["id"]).execute()
+    return song
 
 
 def store_song(title: str, artist: str, lyrics: str, genius_id: Optional[int] = None) -> dict:
@@ -66,6 +70,18 @@ def find_discourse(song_id: str) -> Optional[dict]:
         .execute()
     )
     return result.data[0] if result.data else None
+
+
+def get_trending(limit: int = 10) -> list[dict]:
+    client = get_client()
+    result = (
+        client.table("songs")
+        .select("id, title, artist, request_count")
+        .order("request_count", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
 
 
 def store_discourse(song_id: str, excerpts: list[dict]) -> dict:
