@@ -52,6 +52,7 @@ def test_song_response_accepts_community_commentary():
 
 
 MOCK_INTERPRETATION = {
+    "tldr": "A song about the meaning of life.",
     "overall_meaning": "A song about life.",
     "emotional_tone": "hopeful",
     "themes": ["life", "hope"],

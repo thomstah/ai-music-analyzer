@@ -5,7 +5,10 @@ from fastapi import HTTPException
 from config import settings
 
 MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 2000
+MAX_TOKENS = 2500
+# Required keys in Claude's JSON output. Note: InterpretationContent in schemas.py
+# marks tldr as Optional so legacy DB rows (analyzed before tldr existed) still
+# parse on read. This set enforces tldr presence ONLY for fresh AI responses.
 REQUIRED_KEYS = {"tldr", "overall_meaning", "emotional_tone", "themes", "key_lyric_breakdowns"}
 
 SYSTEM_PROMPT = """You are a music critic and literary analyst. Analyze the provided song lyrics and return a JSON object with exactly these fields:

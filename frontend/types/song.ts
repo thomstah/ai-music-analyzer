@@ -37,13 +37,6 @@ export interface Song {
   metadata?: SongMetadata | null;
 }
 
-export interface TrendingSong {
-  id: string;
-  title: string;
-  artist: string;
-  request_count: number;
-}
-
 export interface SearchResult {
   title: string;
   artist: string;
