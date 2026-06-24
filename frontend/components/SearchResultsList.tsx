@@ -60,7 +60,7 @@ function SongRow({
           alt=""
           width={40}
           height={40}
-          className="rounded object-cover shrink-0"
+          className="w-10 h-10 rounded object-cover shrink-0"
         />
       ) : (
         <div className="w-10 h-10 rounded bg-neutral-700 shrink-0" />
@@ -69,7 +69,9 @@ function SongRow({
         <p className="text-white font-semibold truncate">{result.title}</p>
         <p className="text-neutral-400 text-sm truncate">{result.artist}</p>
       </div>
-      {loading && <Spinner size="sm" />}
+      <div className="w-4 h-4 shrink-0 flex items-center justify-center">
+        {loading && <Spinner size="sm" />}
+      </div>
     </button>
   );
 }
