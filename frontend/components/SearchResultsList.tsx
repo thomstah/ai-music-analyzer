@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SearchResults, SearchResult, ArtistResult, Song } from '@/types/song';
 import { analyzeSong } from '@/lib/api';
+import Spinner from '@/components/Spinner';
 
 function SectionHeader({ label }: { label: string }) {
   return (
@@ -68,7 +69,7 @@ function SongRow({
         <p className="text-white font-semibold truncate">{result.title}</p>
         <p className="text-neutral-400 text-sm truncate">{result.artist}</p>
       </div>
-      {loading && <span className="text-purple-400 text-xs shrink-0">Analyzing…</span>}
+      {loading && <Spinner size="sm" />}
     </button>
   );
 }

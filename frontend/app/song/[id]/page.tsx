@@ -5,6 +5,7 @@ import { Song, LyricBreakdown } from '@/types/song';
 import { getSongById } from '@/lib/api';
 import LyricsPanel from '@/components/LyricsPanel';
 import AnalysisPanel from '@/components/AnalysisPanel';
+import Spinner from '@/components/Spinner';
 
 function parseCachedSong(json: string): Song | null {
   try {
@@ -44,7 +45,12 @@ export default function SongPage() {
   }
 
   if (loading) {
-    return <div className="text-neutral-400 p-12 text-sm">Analyzing lyrics...</div>;
+    return (
+      <div className="flex items-center gap-3 p-12 text-neutral-400 text-sm">
+        <Spinner />
+        <span>Analyzing lyrics…</span>
+      </div>
+    );
   }
   if (!song) {
     return <div className="text-red-400 p-12 text-sm">Song not found.</div>;
@@ -69,7 +75,7 @@ export default function SongPage() {
             />
           </div>
           {/* Analysis panel — comes first visually on mobile, sticky on desktop */}
-          <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
+          <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto bg-neutral-900 rounded-xl p-5">
             <AnalysisPanel
               interpretation={song.interpretation}
               commentary={song.community_commentary}
