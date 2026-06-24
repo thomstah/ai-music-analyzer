@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Interpretation, DiscourseExcerpt, LyricBreakdown } from '@/types/song';
 import BreakdownCard from './BreakdownCard';
 
@@ -11,6 +11,10 @@ interface Props {
 
 export default function AnalysisPanel({ interpretation, commentary, selectedBreakdown }: Props) {
   const [summaryExpanded, setSummaryExpanded] = useState(false);
+
+  useEffect(() => {
+    setSummaryExpanded(false);
+  }, [interpretation]);
 
   const sortedCommentary = useMemo(() => {
     if (!commentary) return [];
@@ -52,7 +56,7 @@ export default function AnalysisPanel({ interpretation, commentary, selectedBrea
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">
-            {interpretation.tldr && !summaryExpanded ? 'TL;DR' : 'Meaning'}
+            Meaning
           </p>
           {interpretation.tldr && (
             <button
