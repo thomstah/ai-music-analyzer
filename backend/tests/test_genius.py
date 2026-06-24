@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
-from services.genius import search_song, fetch_lyrics, normalize_lyrics
+from services.genius import search_song, fetch_lyrics, normalize_lyrics, get_song_details
 
 
 @pytest.mark.asyncio
@@ -127,3 +127,42 @@ def test_normalize_lyrics_preserves_lyric_lines_containing_word_lyrics():
     # The legitimate lyric lines survive
     assert "I'm writing the Lyrics" in result
     assert "To a song you'll never sing" in result
+
+
+@pytest.mark.asyncio
+async def test_get_song_details_returns_metadata():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "song": {
+                "song_art_image_url": "https://images.genius.com/art.jpg",
+                "album": {"name": "Certified Lover Boy", "release_date_for_display": "September 3, 2021"},
+                "producer_artists": [{"name": "Noah '40' Shebib"}],
+            }
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await get_song_details(12345)
+
+    assert result["album_art_url"] == "https://images.genius.com/art.jpg"
+    assert result["album_name"] == "Certified Lover Boy"
+    assert result["release_year"] == "2021"
+    assert result["producer"] == "Noah '40' Shebib"
+
+
+@pytest.mark.asyncio
+async def test_get_song_details_returns_empty_dict_on_error():
+    import httpx as _httpx
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_client = MagicMock()
+        mock_cls.return_value.__aenter__.return_value = mock_client
+        mock_client.get = AsyncMock(
+            side_effect=_httpx.HTTPStatusError(
+                "500 Server Error", request=MagicMock(), response=MagicMock()
+            )
+        )
+        result = await get_song_details(12345)
+    assert result == {}

@@ -18,6 +18,13 @@ export interface Interpretation {
   key_lyric_breakdowns: LyricBreakdown[];
 }
 
+export interface SongMetadata {
+  album_art_url: string | null;
+  album_name: string | null;
+  release_year: string | null;
+  producer: string | null;
+}
+
 export interface Song {
   id: string;
   title: string;
@@ -27,6 +34,7 @@ export interface Song {
   created_at: string;
   interpretation: Interpretation | null;
   community_commentary: DiscourseExcerpt[] | null;
+  metadata?: SongMetadata | null;
 }
 
 export interface TrendingSong {

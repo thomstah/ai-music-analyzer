@@ -99,6 +99,8 @@ def test_analyze_runs_full_flow_when_not_cached():
     with patch("routes.songs.supabase_service.find_song", return_value=None), \
          patch("routes.songs.genius_service.search_song", new_callable=AsyncMock,
                return_value={"url": "https://genius.com/song", "genius_id": 12345}), \
+         patch("routes.songs.genius_service.get_song_details", new_callable=AsyncMock,
+               return_value={"album_art_url": None, "album_name": None, "release_year": None, "producer": None}), \
          patch("routes.songs.genius_service.fetch_lyrics", new_callable=AsyncMock,
                return_value="lyrics text"), \
          patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
@@ -168,6 +170,8 @@ def test_analyze_returns_community_commentary_on_new_song():
     with patch("routes.songs.supabase_service.find_song", return_value=None), \
          patch("routes.songs.genius_service.search_song", new_callable=AsyncMock,
                return_value={"url": "https://genius.com/song", "genius_id": 12345}), \
+         patch("routes.songs.genius_service.get_song_details", new_callable=AsyncMock,
+               return_value={"album_art_url": None, "album_name": None, "release_year": None, "producer": None}), \
          patch("routes.songs.genius_service.fetch_lyrics", new_callable=AsyncMock,
                return_value="lyrics text"), \
          patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,

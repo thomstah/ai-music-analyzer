@@ -30,13 +30,14 @@ def find_song(title: str, artist: str) -> Optional[dict]:
     return song
 
 
-def store_song(title: str, artist: str, lyrics: str, genius_id: Optional[int] = None) -> dict:
+def store_song(title: str, artist: str, lyrics: str, genius_id: Optional[int] = None, metadata: Optional[dict] = None) -> dict:
     client = get_client()
-    result = (
-        client.table("songs")
-        .insert({"title": title, "artist": artist, "lyrics": lyrics, "genius_id": genius_id})
-        .execute()
-    )
+    data = {"title": title, "artist": artist, "lyrics": lyrics}
+    if genius_id is not None:
+        data["genius_id"] = genius_id
+    if metadata:
+        data["metadata"] = metadata
+    result = client.table("songs").insert(data).execute()
     if not result.data:
         raise RuntimeError("Failed to insert song: no data returned")
     return result.data[0]

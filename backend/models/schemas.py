@@ -28,6 +28,13 @@ class DiscourseExcerpt(BaseModel):
     metadata: dict = {}
 
 
+class SongMetadata(BaseModel):
+    album_art_url: Optional[str] = None
+    album_name: Optional[str] = None
+    release_year: Optional[str] = None
+    producer: Optional[str] = None
+
+
 class SongResponse(BaseModel):
     id: str
     title: str
@@ -37,3 +44,4 @@ class SongResponse(BaseModel):
     created_at: Optional[datetime] = None
     interpretation: Optional[InterpretationContent] = None
     community_commentary: Optional[list[DiscourseExcerpt]] = None
+    metadata: Optional[SongMetadata] = None

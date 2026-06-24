@@ -27,6 +27,7 @@ def _format_cached(song: dict) -> dict:
         "genius_id": song.get("genius_id"),
         "created_at": song.get("created_at"),
         "interpretation": latest.get("content") if latest else None,
+        "metadata": song.get("metadata"),
     }
 
 
@@ -63,6 +64,7 @@ async def analyze(request: AnalyzeRequest):
         return {**_format_cached(cached), "community_commentary": excerpts}
 
     genius_data = await genius_service.search_song(request.title, request.artist)
+    song_metadata = await genius_service.get_song_details(genius_data["genius_id"])
     lyrics = await genius_service.fetch_lyrics(genius_data["url"])
     excerpts = await discourse_service.fetch_discourse(
         genius_data.get("genius_id"), request.title, request.artist
@@ -71,7 +73,7 @@ async def analyze(request: AnalyzeRequest):
         request.title, request.artist, lyrics, discourse=excerpts
     )
     song = supabase_service.store_song(
-        request.title, request.artist, lyrics, genius_data.get("genius_id")
+        request.title, request.artist, lyrics, genius_data.get("genius_id"), metadata=song_metadata
     )
     supabase_service.store_interpretation(song["id"], interpretation, model_version)
     try:
@@ -88,6 +90,7 @@ async def analyze(request: AnalyzeRequest):
         "created_at": song.get("created_at"),
         "interpretation": interpretation,
         "community_commentary": excerpts,
+        "metadata": song_metadata,
     }
 
 

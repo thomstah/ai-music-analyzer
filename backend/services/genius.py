@@ -112,6 +112,34 @@ async def search_songs(query: str, limit: int = 10) -> dict:
     return {"songs": songs[:8], "lyrics": lyrics[:5], "artists": artists[:3]}
 
 
+async def get_song_details(genius_id: int) -> dict:
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{GENIUS_API_BASE}/songs/{genius_id}",
+                params={"text_format": "plain"},
+                headers={"Authorization": f"Bearer {settings.genius_access_token}"},
+            )
+            response.raise_for_status()
+            song = response.json()["response"]["song"]
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        return {}
+
+    album = song.get("album") or {}
+    release_date = album.get("release_date_for_display", "") or song.get("release_date_for_display", "")
+    release_year = release_date.split()[-1] if release_date else None
+
+    producers = song.get("producer_artists", [])
+    producer = producers[0]["name"] if producers else None
+
+    return {
+        "album_art_url": song.get("song_art_image_url"),
+        "album_name": album.get("name"),
+        "release_year": release_year,
+        "producer": producer,
+    }
+
+
 def normalize_lyrics(lyrics: str) -> str:
     # Strip "67 ContributorsTranslationsFrançais...Song Title Lyrics" boilerplate line
     cleaned = re.sub(r"\d+\s*Contributor[^\n]*\n?", "", lyrics)

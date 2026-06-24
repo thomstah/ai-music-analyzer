@@ -6,6 +6,7 @@ import { getSongById } from '@/lib/api';
 import LyricsPanel from '@/components/LyricsPanel';
 import AnalysisPanel from '@/components/AnalysisPanel';
 import Spinner from '@/components/Spinner';
+import SongBanner from '@/components/SongBanner';
 
 function parseCachedSong(json: string): Song | null {
   try {
@@ -58,10 +59,7 @@ export default function SongPage() {
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black text-white">{song.title}</h1>
-        <p className="text-neutral-400 text-lg">{song.artist}</p>
-      </div>
+      <SongBanner song={song} />
 
       {song.interpretation ? (
         <div className="flex flex-col-reverse lg:flex-row gap-8 items-start">
