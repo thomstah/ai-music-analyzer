@@ -115,21 +115,27 @@ def test_analyze_runs_full_flow_when_not_cached():
     assert data["interpretation"]["emotional_tone"] == "hopeful"
 
 
-def test_songs_search_returns_suggestions():
-    suggestions = [
-        {"title": "Bohemian Rhapsody", "artist": "Queen", "genius_id": 1, "thumbnail": None}
-    ]
-    with patch("routes.songs.genius_service.search_songs", return_value=suggestions):
-        response = client.get("/songs/search?q=bohemian+rhapsody")
+def test_songs_search_returns_categorized_results():
+    categorized = {
+        "songs": [{"title": "Bohemian Rhapsody", "artist": "Queen", "genius_id": 1, "thumbnail": None}],
+        "lyrics": [],
+        "artists": [{"name": "Queen", "artist_id": 42, "thumbnail": None}],
+    }
+    with patch("routes.songs.genius_service.search_songs", return_value=categorized):
+        response = client.get("/songs/search?q=queen")
     assert response.status_code == 200
-    assert response.json()[0]["title"] == "Bohemian Rhapsody"
+    data = response.json()
+    assert data["songs"][0]["title"] == "Bohemian Rhapsody"
+    assert data["artists"][0]["name"] == "Queen"
+    assert data["lyrics"] == []
 
 
-def test_songs_search_returns_empty_list_when_no_results():
-    with patch("routes.songs.genius_service.search_songs", return_value=[]):
+def test_songs_search_returns_empty_categories_when_no_results():
+    empty = {"songs": [], "lyrics": [], "artists": []}
+    with patch("routes.songs.genius_service.search_songs", return_value=empty):
         response = client.get("/songs/search?q=xyznotareal")
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"songs": [], "lyrics": [], "artists": []}
 
 
 def test_songs_search_requires_q_param():

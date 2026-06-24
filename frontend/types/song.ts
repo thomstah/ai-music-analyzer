@@ -41,3 +41,15 @@ export interface SearchResult {
   genius_id: number;
   thumbnail: string | null;
 }
+
+export interface ArtistResult {
+  name: string;
+  artist_id: number;
+  thumbnail: string | null;
+}
+
+export interface SearchResults {
+  songs: SearchResult[];
+  lyrics: SearchResult[];
+  artists: ArtistResult[];
+}

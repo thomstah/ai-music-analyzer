@@ -1,4 +1,4 @@
-import { Song, TrendingSong, SearchResult } from '@/types/song';
+import { Song, TrendingSong, SearchResults } from '@/types/song';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -29,11 +29,12 @@ export async function getSongById(id: string): Promise<Song | null> {
   return res.json();
 }
 
-export async function searchSongs(q: string): Promise<SearchResult[]> {
+export async function searchSongs(q: string): Promise<SearchResults> {
+  const empty: SearchResults = { songs: [], lyrics: [], artists: [] };
   const res = await fetch(
     `${BASE_URL}/songs/search?q=${encodeURIComponent(q)}`,
     { cache: 'no-store' },
   );
-  if (!res.ok) return [];
+  if (!res.ok) return empty;
   return res.json();
 }

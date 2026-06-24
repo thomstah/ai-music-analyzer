@@ -58,7 +58,7 @@ async def fetch_lyrics(url: str) -> str:
     return normalize_lyrics("\n".join(parts))
 
 
-async def search_songs(query: str, limit: int = 8) -> list[dict]:
+async def search_songs(query: str, limit: int = 10) -> dict:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -69,19 +69,47 @@ async def search_songs(query: str, limit: int = 8) -> list[dict]:
             response.raise_for_status()
             data = response.json()
     except (httpx.HTTPStatusError, httpx.RequestError):
-        return []
+        return {"songs": [], "lyrics": [], "artists": []}
 
-    hits = data["response"]["hits"][:limit]
-    return [
-        {
-            "title": h["result"]["title"],
-            "artist": h["result"]["primary_artist"]["name"],
-            "genius_id": h["result"]["id"],
-            "thumbnail": h["result"].get("song_art_image_thumbnail_url"),
+    query_words = {w for w in query.lower().split() if len(w) > 1}
+    songs: list[dict] = []
+    lyrics: list[dict] = []
+    seen_song_ids: set[int] = set()
+    seen_artist_ids: set[int] = set()
+    artists: list[dict] = []
+
+    for h in data["response"]["hits"][:limit]:
+        result = h.get("result", {})
+        song_id = result.get("id")
+        if not song_id or song_id in seen_song_ids:
+            continue
+        seen_song_ids.add(song_id)
+
+        primary_artist = result.get("primary_artist", {})
+        entry = {
+            "title": result.get("title", ""),
+            "artist": primary_artist.get("name", ""),
+            "genius_id": song_id,
+            "thumbnail": result.get("song_art_image_thumbnail_url"),
         }
-        for h in hits
-        if h.get("type") == "song"
-    ]
+
+        if h.get("type") == "lyric":
+            lyrics.append(entry)
+        else:
+            songs.append(entry)
+
+        artist_id = primary_artist.get("id")
+        if artist_id and artist_id not in seen_artist_ids:
+            artist_name_lower = primary_artist.get("name", "").lower()
+            if query_words and any(w in artist_name_lower for w in query_words):
+                seen_artist_ids.add(artist_id)
+                artists.append({
+                    "name": primary_artist.get("name", ""),
+                    "artist_id": artist_id,
+                    "thumbnail": primary_artist.get("image_url"),
+                })
+
+    return {"songs": songs[:8], "lyrics": lyrics[:5], "artists": artists[:3]}
 
 
 def normalize_lyrics(lyrics: str) -> str:
