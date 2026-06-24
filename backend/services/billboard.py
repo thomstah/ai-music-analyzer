@@ -23,8 +23,9 @@ def get_hot_100(limit: int = 10) -> list[dict]:
             {"rank": i + 1, "title": entry.title, "artist": entry.artist}
             for i, entry in enumerate(chart[:limit])
         ]
-        _cache["data"] = results
-        _cache["fetched_at"] = now
+        if results:
+            _cache["data"] = results
+            _cache["fetched_at"] = now
         return results
     except Exception as exc:
         logger.warning("Billboard fetch failed: %s", exc)
