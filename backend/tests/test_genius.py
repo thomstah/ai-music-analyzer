@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
-from services.genius import search_song, fetch_lyrics, normalize_lyrics, get_song_details
+from services.genius import search_song, fetch_lyrics, normalize_lyrics, get_song_details, search_songs
 
 
 @pytest.mark.asyncio
@@ -187,3 +187,48 @@ async def test_get_song_details_returns_none_year_for_non_date_garbage():
         result = await get_song_details(12345)
 
     assert result["release_year"] is None
+
+
+@pytest.mark.asyncio
+async def test_search_songs_filters_out_genius_translation_accounts():
+    hits = [
+        {
+            "type": "song",
+            "result": {
+                "id": 1,
+                "title": "Slap The City",
+                "primary_artist": {"id": 100, "name": "Drake"},
+                "song_art_image_thumbnail_url": None,
+            },
+        },
+        {
+            "type": "song",
+            "result": {
+                "id": 2,
+                "title": "Slap The City (Tradução em Português)",
+                "primary_artist": {"id": 200, "name": "Genius Brasil Traduções"},
+                "song_art_image_thumbnail_url": None,
+            },
+        },
+        {
+            "type": "song",
+            "result": {
+                "id": 3,
+                "title": "Slap The City (Türkçe Çeviri)",
+                "primary_artist": {"id": 300, "name": "Genius Türkçe Çeviriler"},
+                "song_art_image_thumbnail_url": None,
+            },
+        },
+    ]
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"response": {"hits": hits}}
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await search_songs("slap the city")
+
+    titles = [s["title"] for s in result["songs"]]
+    assert "Slap The City" in titles
+    assert all("Tradução" not in t and "Çeviri" not in t for t in titles)
+    assert len(result["songs"]) == 1

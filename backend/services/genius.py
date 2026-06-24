@@ -86,6 +86,11 @@ async def search_songs(query: str, limit: int = 10) -> dict:
         seen_song_ids.add(song_id)
 
         primary_artist = result.get("primary_artist", {})
+        # Skip Genius translation/romanization accounts (e.g. "Genius Brasil Traduções",
+        # "Genius traductions françaises") — these are translated versions, not original songs.
+        if primary_artist.get("name", "").lower().startswith("genius "):
+            continue
+
         entry = {
             "title": result.get("title", ""),
             "artist": primary_artist.get("name", ""),
