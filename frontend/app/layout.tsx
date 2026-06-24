@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'LYRIQ — AI Music Analyzer',
-  description: 'Claude-powered song interpretation',
+  description: 'Lyriq — AI-powered song interpretation',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,36 +1,45 @@
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
-from services.discourse import fetch_discourse, _fetch_reddit, _fetch_genius_annotations
+from services.discourse import fetch_discourse, _fetch_youtube_comments, _fetch_genius_annotations
 
-MOCK_REDDIT_SEARCH = {
-    "data": {
-        "children": [
-            {
-                "data": {
-                    "id": "abc123",
-                    "subreddit": "hiphopheads",
-                    "subreddit_name_prefixed": "r/hiphopheads",
-                    "permalink": "/r/hiphopheads/comments/abc123/passionfruit_drake/",
-                }
-            }
-        ]
-    }
+MOCK_YOUTUBE_SEARCH = {
+    "items": [
+        {
+            "id": {"videoId": "abc123"},
+            "snippet": {"title": "Passionfruit - Drake (Official Video)"},
+        }
+    ]
 }
 
-MOCK_REDDIT_COMMENTS = [
-    {"data": {"children": []}},
-    {
-        "data": {
-            "children": [
-                {"data": {"body": "This song is about Drake processing his emotions after a complicated relationship."}},
-                {"data": {"body": "Short"}},
-                {"data": {"body": "Another great comment about the themes in this track and what they mean."}},
-                {"data": {"body": "[deleted]"}},
-                {"data": {"body": "[removed]"}},
-            ]
-        }
-    },
-]
+MOCK_YOUTUBE_COMMENTS = {
+    "items": [
+        {
+            "snippet": {
+                "topLevelComment": {
+                    "snippet": {
+                        "textDisplay": "This song is about Drake processing his emotions after a complicated relationship with someone abroad."
+                    }
+                }
+            }
+        },
+        {
+            "snippet": {
+                "topLevelComment": {
+                    "snippet": {"textDisplay": "Short"}
+                }
+            }
+        },
+        {
+            "snippet": {
+                "topLevelComment": {
+                    "snippet": {
+                        "textDisplay": "The tropical house production perfectly mirrors the longing and distance described in the lyrics."
+                    }
+                }
+            }
+        },
+    ]
+}
 
 MOCK_GENIUS_REFERENTS = {
     "response": {
@@ -67,69 +76,78 @@ def _mock_async_client(responses):
 
 
 @pytest.mark.asyncio
-async def test_fetch_discourse_combines_reddit_and_genius():
-    reddit = [{"source": "reddit", "text": "great analysis", "url": "https://reddit.com/r/x", "metadata": {"subreddit": "r/hiphopheads"}}]
+async def test_fetch_discourse_combines_youtube_and_genius():
+    youtube = [{"source": "youtube", "text": "great analysis", "url": "https://youtube.com/watch?v=x", "metadata": {"video_title": "Passionfruit"}}]
     genius = [{"source": "genius", "text": "deep meaning", "url": None, "metadata": {"lyric_fragment": "sipped lean"}}]
 
-    with patch("services.discourse._fetch_reddit", new_callable=AsyncMock, return_value=reddit), \
+    with patch("services.discourse._fetch_youtube_comments", new_callable=AsyncMock, return_value=youtube), \
          patch("services.discourse._fetch_genius_annotations", new_callable=AsyncMock, return_value=genius):
         result = await fetch_discourse(genius_id=12345, title="Passionfruit", artist="Drake")
 
     assert len(result) == 2
-    assert result[0]["source"] == "reddit"
-    assert result[1]["source"] == "genius"
+    assert result[0]["source"] == "genius"
+    assert result[1]["source"] == "youtube"
 
 
 @pytest.mark.asyncio
 async def test_fetch_discourse_skips_genius_when_no_genius_id():
-    reddit = [{"source": "reddit", "text": "great analysis", "url": "https://reddit.com/r/x", "metadata": {"subreddit": "r/hiphopheads"}}]
+    youtube = [{"source": "youtube", "text": "great analysis", "url": "https://youtube.com/watch?v=x", "metadata": {"video_title": "Song"}}]
 
-    with patch("services.discourse._fetch_reddit", new_callable=AsyncMock, return_value=reddit), \
+    with patch("services.discourse._fetch_youtube_comments", new_callable=AsyncMock, return_value=youtube), \
          patch("services.discourse._fetch_genius_annotations", new_callable=AsyncMock) as mock_genius:
         result = await fetch_discourse(genius_id=None, title="Song", artist="Artist")
 
     mock_genius.assert_not_called()
-    assert all(e["source"] == "reddit" for e in result)
+    assert all(e["source"] == "youtube" for e in result)
 
 
 @pytest.mark.asyncio
-async def test_fetch_reddit_returns_excerpts():
+async def test_fetch_youtube_comments_returns_excerpts():
     mock_cls = _mock_async_client([
-        _make_http_response(MOCK_REDDIT_SEARCH),
-        _make_http_response(MOCK_REDDIT_COMMENTS),
+        _make_http_response(MOCK_YOUTUBE_SEARCH),
+        _make_http_response(MOCK_YOUTUBE_COMMENTS),
     ])
 
     with patch("services.discourse.httpx.AsyncClient", mock_cls):
-        result = await _fetch_reddit("Passionfruit", "Drake")
+        result = await _fetch_youtube_comments("Passionfruit", "Drake")
 
     assert len(result) == 2
-    assert result[0]["source"] == "reddit"
-    assert result[0]["metadata"]["subreddit"] == "r/hiphopheads"
-    assert "reddit.com" in result[0]["url"]
+    assert result[0]["source"] == "youtube"
+    assert result[0]["metadata"]["video_title"] == "Passionfruit - Drake (Official Video)"
+    assert "youtube.com/watch?v=abc123" in result[0]["url"]
 
 
 @pytest.mark.asyncio
-async def test_fetch_reddit_filters_short_and_deleted_comments():
+async def test_fetch_youtube_comments_filters_short_comments():
     mock_cls = _mock_async_client([
-        _make_http_response(MOCK_REDDIT_SEARCH),
-        _make_http_response(MOCK_REDDIT_COMMENTS),
+        _make_http_response(MOCK_YOUTUBE_SEARCH),
+        _make_http_response(MOCK_YOUTUBE_COMMENTS),
     ])
 
     with patch("services.discourse.httpx.AsyncClient", mock_cls):
-        result = await _fetch_reddit("Passionfruit", "Drake")
+        result = await _fetch_youtube_comments("Passionfruit", "Drake")
 
     texts = [e["text"] for e in result]
     assert "Short" not in texts
-    assert "[deleted]" not in texts
-    assert "[removed]" not in texts
 
 
 @pytest.mark.asyncio
-async def test_fetch_reddit_returns_empty_list_on_error():
+async def test_fetch_youtube_comments_returns_empty_when_no_videos():
+    empty_search = {"items": []}
+    mock_cls = _mock_async_client([_make_http_response(empty_search)])
+
+    with patch("services.discourse.httpx.AsyncClient", mock_cls):
+        result = await _fetch_youtube_comments("Unknown Song", "Unknown Artist")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_youtube_comments_returns_empty_list_on_error():
     mock_cls = _mock_async_client([Exception("Network error")])
 
     with patch("services.discourse.httpx.AsyncClient", mock_cls):
-        result = await _fetch_reddit("Song", "Artist")
+        result = await _fetch_youtube_comments("Song", "Artist")
 
     assert result == []
 

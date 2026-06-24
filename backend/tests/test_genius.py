@@ -97,3 +97,19 @@ def test_normalize_lyrics_collapses_multiple_blank_lines():
     assert "\n\n\n" not in result
     assert "Line one" in result
     assert "Line two" in result
+
+
+def test_normalize_lyrics_strips_contributor_and_translation_header():
+    raw = "67 ContributorsTranslationsFrançaisItalianoSlap The City Lyrics\nYeah\nSlap the city"
+    result = normalize_lyrics(raw)
+    assert "Contributors" not in result
+    assert "Français" not in result
+    assert "Lyrics" not in result
+    assert "Yeah" in result
+
+
+def test_normalize_lyrics_strips_song_title_lyrics_line():
+    raw = "Bohemian Rhapsody Lyrics\nIs this the real life?"
+    result = normalize_lyrics(raw)
+    assert "Bohemian Rhapsody Lyrics" not in result
+    assert "Is this the real life?" in result

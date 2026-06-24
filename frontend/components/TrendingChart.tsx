@@ -23,7 +23,7 @@ export default function TrendingChart({ songs }: { songs: TrendingSong[] }) {
               <p className="text-neutral-400 text-sm truncate">{song.artist}</p>
             </div>
             <span className="text-purple-400 text-sm font-medium shrink-0">
-              {song.request_count.toLocaleString()} plays
+              {song.request_count.toLocaleString()} views
             </span>
           </Link>
         </li>

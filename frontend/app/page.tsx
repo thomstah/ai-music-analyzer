@@ -27,7 +27,7 @@ export default async function HomePage({
     <main className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-black text-white mb-2">What does it mean?</h1>
       <p className="text-neutral-400 mb-10">
-        Search a song to get Claude&apos;s interpretation of the lyrics.
+        Search a song to get Lyriq&apos;s interpretation of the lyrics.
       </p>
       <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
         Trending This Week

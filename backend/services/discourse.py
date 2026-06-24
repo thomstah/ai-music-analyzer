@@ -6,69 +6,72 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 GENIUS_API_BASE = "https://api.genius.com"
-REDDIT_HEADERS = {"User-Agent": "ai-music-analyzer/1.0"}
-MAX_REDDIT_EXCERPTS = 10
+YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
+MAX_YOUTUBE_COMMENTS = 10
 MIN_COMMENT_LENGTH = 50
-MAX_THREADS = 5
-MAX_COMMENTS_PER_THREAD = 3
 MAX_GENIUS_ANNOTATIONS = 5
 
 
 async def fetch_discourse(genius_id: Optional[int], title: str, artist: str) -> list[dict]:
     excerpts = []
-    excerpts.extend(await _fetch_reddit(title, artist))
     if genius_id is not None:
         excerpts.extend(await _fetch_genius_annotations(genius_id))
+    excerpts.extend(await _fetch_youtube_comments(title, artist))
     return excerpts
 
 
-async def _fetch_reddit(title: str, artist: str) -> list[dict]:
+async def _fetch_youtube_comments(title: str, artist: str) -> list[dict]:
     excerpts = []
     try:
-        async with httpx.AsyncClient(timeout=10.0, headers=REDDIT_HEADERS) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             search_resp = await client.get(
-                "https://www.reddit.com/search.json",
-                params={"q": f'"{title}" "{artist}"', "sort": "top", "t": "all", "limit": MAX_THREADS, "type": "link"},
+                f"{YOUTUBE_API_BASE}/search",
+                params={
+                    "part": "snippet",
+                    "q": f"{title} {artist}",
+                    "type": "video",
+                    "videoCategoryId": "10",
+                    "maxResults": 3,
+                    "key": settings.youtube_api_key,
+                },
             )
             search_resp.raise_for_status()
-            threads = search_resp.json()["data"]["children"]
+            items = search_resp.json().get("items", [])
+            if not items:
+                return excerpts
+
+            video_id = items[0]["id"]["videoId"]
+            video_title = items[0]["snippet"]["title"]
+            video_url = f"https://www.youtube.com/watch?v={video_id}"
+
+            comments_resp = await client.get(
+                f"{YOUTUBE_API_BASE}/commentThreads",
+                params={
+                    "part": "snippet",
+                    "videoId": video_id,
+                    "order": "relevance",
+                    "maxResults": MAX_YOUTUBE_COMMENTS + 5,
+                    "textFormat": "plainText",
+                    "key": settings.youtube_api_key,
+                },
+            )
+            comments_resp.raise_for_status()
+            threads = comments_resp.json().get("items", [])
 
             for thread in threads:
-                if len(excerpts) >= MAX_REDDIT_EXCERPTS:
+                if len(excerpts) >= MAX_YOUTUBE_COMMENTS:
                     break
-                td = thread["data"]
-                subreddit = td.get("subreddit_name_prefixed", "r/unknown")
-                post_id = td.get("id")
-                thread_subreddit = td.get("subreddit")
-                if not post_id or not thread_subreddit:
-                    continue
-                thread_url = f"https://reddit.com{td.get('permalink', '')}"
-
-                comments_resp = await client.get(
-                    f"https://www.reddit.com/r/{thread_subreddit}/comments/{post_id}.json",
-                    params={"sort": "top", "limit": MAX_COMMENTS_PER_THREAD + 3},
-                )
-                comments_resp.raise_for_status()
-                comments_data = comments_resp.json()
-
-                if len(comments_data) < 2:
-                    continue
-
-                count = 0
-                for comment in comments_data[1]["data"]["children"]:
-                    if count >= MAX_COMMENTS_PER_THREAD or len(excerpts) >= MAX_REDDIT_EXCERPTS:
-                        break
-                    body = comment["data"].get("body", "")
-                    if len(body) >= MIN_COMMENT_LENGTH and body not in ("[deleted]", "[removed]"):
-                        excerpts.append({
-                            "source": "reddit",
-                            "text": body,
-                            "url": thread_url,
-                            "metadata": {"subreddit": subreddit},
-                        })
-                        count += 1
+                comment = thread["snippet"]["topLevelComment"]["snippet"]
+                text = comment.get("textDisplay", "")
+                if len(text) >= MIN_COMMENT_LENGTH:
+                    excerpts.append({
+                        "source": "youtube",
+                        "text": text,
+                        "url": video_url,
+                        "metadata": {"video_title": video_title},
+                    })
     except Exception as exc:
-        logger.warning("Reddit scraping failed: %s", exc, exc_info=True)
+        logger.warning("YouTube comments fetch failed: %s", exc, exc_info=True)
     return excerpts
 
 

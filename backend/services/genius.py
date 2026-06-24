@@ -113,8 +113,12 @@ async def search_songs(query: str, limit: int = 10) -> dict:
 
 
 def normalize_lyrics(lyrics: str) -> str:
-    # Strip Genius UI boilerplate: e.g. "67 ContributorsTranslations...Lyrics"
-    cleaned = re.sub(r"\d+\s*Contributor\w*[^\n]*\n?", "", lyrics)
+    # Strip "67 ContributorsTranslationsFrançais...Song Title Lyrics" boilerplate line
+    cleaned = re.sub(r"\d+\s*Contributor[^\n]*\n?", "", lyrics)
+    # Strip any standalone "X Lyrics" line (e.g. "Slap The City Lyrics")
+    cleaned = re.sub(r"^.+\bLyrics\s*$", "", cleaned, flags=re.MULTILINE)
+    # Strip section headers like [Verse 1]
     cleaned = re.sub(r"\[.*?\]", "", cleaned)
+    # Collapse excess blank lines
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
