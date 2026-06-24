@@ -1,5 +1,5 @@
-import { getTrending, searchSongs } from '@/lib/api';
-import TrendingChart from '@/components/TrendingChart';
+import { getBillboard, searchSongs } from '@/lib/api';
+import BillboardChart from '@/components/BillboardChart';
 import SearchResultsList from '@/components/SearchResultsList';
 
 export default async function HomePage({
@@ -22,7 +22,7 @@ export default async function HomePage({
     );
   }
 
-  const trending = await getTrending(10);
+  const billboard = await getBillboard(10);
   return (
     <main className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-black text-white mb-2">What does it mean?</h1>
@@ -30,9 +30,9 @@ export default async function HomePage({
         Search a song to get Lyriq&apos;s interpretation of the lyrics.
       </p>
       <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
-        Trending This Week
+        Billboard Hot 100
       </h2>
-      <TrendingChart songs={trending} />
+      <BillboardChart songs={billboard} />
     </main>
   );
 }

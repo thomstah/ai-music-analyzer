@@ -249,3 +249,19 @@ def test_trending_rejects_limit_below_minimum():
 def test_trending_rejects_limit_above_maximum():
     response = client.get("/songs/trending?limit=51")
     assert response.status_code == 422
+
+
+def test_billboard_returns_top_songs():
+    songs = [{"rank": 1, "title": "Not Like Us", "artist": "Kendrick Lamar"}]
+    with patch("routes.songs.billboard_service.get_hot_100", return_value=songs):
+        response = client.get("/songs/billboard")
+    assert response.status_code == 200
+    assert response.json()[0]["rank"] == 1
+    assert response.json()[0]["title"] == "Not Like Us"
+
+
+def test_billboard_returns_empty_list_on_failure():
+    with patch("routes.songs.billboard_service.get_hot_100", return_value=[]):
+        response = client.get("/songs/billboard")
+    assert response.status_code == 200
+    assert response.json() == []

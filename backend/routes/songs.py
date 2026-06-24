@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Query
@@ -6,6 +7,7 @@ import services.supabase as supabase_service
 import services.genius as genius_service
 import services.anthropic as anthropic_service
 import services.discourse as discourse_service
+import services.billboard as billboard_service
 
 logger = logging.getLogger(__name__)
 
@@ -100,3 +102,8 @@ async def get_song(song_id: str):
 @router.get("/songs/trending")
 async def trending(limit: int = Query(default=10, ge=1, le=50)):
     return supabase_service.get_trending(limit)
+
+
+@router.get("/songs/billboard")
+async def billboard_chart(limit: int = Query(default=10, ge=1, le=100)):
+    return await asyncio.to_thread(billboard_service.get_hot_100, limit)

@@ -54,3 +54,9 @@ export interface SearchResults {
   lyrics: SearchResult[];
   artists: ArtistResult[];
 }
+
+export interface BillboardSong {
+  rank: number;
+  title: string;
+  artist: string;
+}
