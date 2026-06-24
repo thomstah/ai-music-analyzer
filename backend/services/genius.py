@@ -115,8 +115,8 @@ async def search_songs(query: str, limit: int = 10) -> dict:
 def normalize_lyrics(lyrics: str) -> str:
     # Strip "67 ContributorsTranslationsFrançais...Song Title Lyrics" boilerplate line
     cleaned = re.sub(r"\d+\s*Contributor[^\n]*\n?", "", lyrics)
-    # Strip any standalone "X Lyrics" line (e.g. "Slap The City Lyrics")
-    cleaned = re.sub(r"^.+\bLyrics\s*$", "", cleaned, flags=re.MULTILINE)
+    # Strip the Genius "{Title} Lyrics" header — only at the very start, not mid-song
+    cleaned = re.sub(r"\A[^\n]*\bLyrics\s*\n?", "", cleaned, count=1)
     # Strip section headers like [Verse 1]
     cleaned = re.sub(r"\[.*?\]", "", cleaned)
     # Collapse excess blank lines

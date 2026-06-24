@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Interpretation, DiscourseExcerpt, LyricBreakdown } from '@/types/song';
 import BreakdownCard from './BreakdownCard';
 
@@ -13,6 +13,15 @@ export default function AnalysisPanel({ interpretation, commentary, selectedBrea
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const summary = interpretation.overall_meaning;
   const truncated = summary.length > 240;
+
+  const sortedCommentary = useMemo(() => {
+    if (!commentary) return [];
+    return [...commentary].sort((a, b) => {
+      if (a.source === 'genius' && b.source !== 'genius') return -1;
+      if (b.source === 'genius' && a.source !== 'genius') return 1;
+      return 0;
+    });
+  }, [commentary]);
 
   return (
     <div className="space-y-6">
@@ -74,40 +83,33 @@ export default function AnalysisPanel({ interpretation, commentary, selectedBrea
       )}
 
       {/* Community commentary */}
-      {commentary && commentary.length > 0 && (() => {
-        const sortedCommentary = [...commentary].sort((a, b) => {
-          if (a.source === 'genius' && b.source !== 'genius') return -1;
-          if (b.source === 'genius' && a.source !== 'genius') return 1;
-          return 0;
-        });
-        return (
-          <div>
-            <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">
-              Community
-            </p>
-            <div className="space-y-3">
-              {sortedCommentary.map((exc, i) => (
-                <div key={`${exc.source}-${i}`} className="bg-neutral-900 rounded-lg p-3 border border-neutral-800">
-                  <p className="text-xs text-neutral-500 mb-1 uppercase tracking-wide font-medium">
-                    {exc.source}
-                  </p>
-                  <p className="text-neutral-300 text-sm leading-relaxed">{exc.text}</p>
-                  {exc.url && (
-                    <a
-                      href={exc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-purple-400 text-xs mt-1 inline-block hover:underline"
-                    >
-                      View source ↗
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
+      {sortedCommentary.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">
+            Community
+          </p>
+          <div className="space-y-3">
+            {sortedCommentary.map((exc, i) => (
+              <div key={`${exc.source}-${i}`} className="bg-neutral-900 rounded-lg p-3 border border-neutral-800">
+                <p className="text-xs text-neutral-500 mb-1 uppercase tracking-wide font-medium">
+                  {exc.source}
+                </p>
+                <p className="text-neutral-300 text-sm leading-relaxed">{exc.text}</p>
+                {exc.url && (
+                  <a
+                    href={exc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-400 text-xs mt-1 inline-block hover:underline"
+                  >
+                    View source ↗
+                  </a>
+                )}
+              </div>
+            ))}
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }

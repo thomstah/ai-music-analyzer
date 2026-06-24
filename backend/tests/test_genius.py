@@ -100,12 +100,14 @@ def test_normalize_lyrics_collapses_multiple_blank_lines():
 
 
 def test_normalize_lyrics_strips_contributor_and_translation_header():
-    raw = "67 ContributorsTranslationsFrançaisItalianoSlap The City Lyrics\nYeah\nSlap the city"
+    # Two lines so each regex is exercised independently
+    raw = "67 ContributorsTranslationsFrançaisItaliano\nSlap The City Lyrics\nYeah\nSlap the city"
     result = normalize_lyrics(raw)
     assert "Contributors" not in result
     assert "Français" not in result
-    assert "Lyrics" not in result
+    assert "Slap The City Lyrics" not in result
     assert "Yeah" in result
+    assert "Slap the city" in result
 
 
 def test_normalize_lyrics_strips_song_title_lyrics_line():
@@ -113,3 +115,15 @@ def test_normalize_lyrics_strips_song_title_lyrics_line():
     result = normalize_lyrics(raw)
     assert "Bohemian Rhapsody Lyrics" not in result
     assert "Is this the real life?" in result
+
+
+def test_normalize_lyrics_preserves_lyric_lines_containing_word_lyrics():
+    # Genius header only ever appears at document start. A real lyric line
+    # containing "Lyrics" must NOT be stripped.
+    raw = "Song Title Lyrics\nI'm writing the Lyrics\nTo a song you'll never sing"
+    result = normalize_lyrics(raw)
+    # The header (first line) is stripped
+    assert "Song Title Lyrics" not in result
+    # The legitimate lyric lines survive
+    assert "I'm writing the Lyrics" in result
+    assert "To a song you'll never sing" in result
