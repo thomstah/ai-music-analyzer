@@ -6,9 +6,10 @@ from config import settings
 
 MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 2000
-REQUIRED_KEYS = {"overall_meaning", "emotional_tone", "themes", "key_lyric_breakdowns"}
+REQUIRED_KEYS = {"tldr", "overall_meaning", "emotional_tone", "themes", "key_lyric_breakdowns"}
 
 SYSTEM_PROMPT = """You are a music critic and literary analyst. Analyze the provided song lyrics and return a JSON object with exactly these fields:
+- tldr: 1-2 sentences — the most essential thing to understand about this song. Plain language, no jargon.
 - overall_meaning: 2-3 paragraphs interpreting the song's central message and narrative
 - emotional_tone: a brief phrase describing the emotional character (e.g. "melancholic and introspective")
 - themes: a list of 3-6 theme strings (e.g. ["loss", "memory", "identity"])

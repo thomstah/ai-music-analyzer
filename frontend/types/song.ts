@@ -11,6 +11,7 @@ export interface DiscourseExcerpt {
 }
 
 export interface Interpretation {
+  tldr?: string;
   overall_meaning: string;
   emotional_tone: string;
   themes: string[];

@@ -11,8 +11,6 @@ interface Props {
 
 export default function AnalysisPanel({ interpretation, commentary, selectedBreakdown }: Props) {
   const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const summary = interpretation.overall_meaning;
-  const truncated = summary.length > 240;
 
   const sortedCommentary = useMemo(() => {
     if (!commentary) return [];
@@ -50,25 +48,32 @@ export default function AnalysisPanel({ interpretation, commentary, selectedBrea
         </div>
       </div>
 
-      {/* Overall meaning */}
+      {/* TL;DR / Overall meaning */}
       <div>
-        <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">
-          Overall Meaning
-        </p>
-        <p className="text-neutral-300 text-sm leading-relaxed">
-          {summaryExpanded || !truncated
-            ? summary
-            : summary.slice(0, summary.lastIndexOf(' ', 240)) + '…'}
-        </p>
-        {truncated && (
-          <button
-            onClick={() => setSummaryExpanded(v => !v)}
-            aria-expanded={summaryExpanded}
-            aria-label={summaryExpanded ? 'Show less of Overall Meaning' : 'Show more of Overall Meaning'}
-            className="text-purple-400 text-xs hover:underline mt-1"
-          >
-            {summaryExpanded ? 'less' : 'more'}
-          </button>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">
+            {interpretation.tldr && !summaryExpanded ? 'TL;DR' : 'Meaning'}
+          </p>
+          {interpretation.tldr && (
+            <button
+              onClick={() => setSummaryExpanded(v => !v)}
+              aria-expanded={summaryExpanded}
+              aria-label={summaryExpanded ? 'Show brief summary' : 'Show full analysis'}
+              className="text-purple-400 text-xs hover:underline"
+            >
+              {summaryExpanded ? 'TL;DR ↑' : 'Full analysis ↓'}
+            </button>
+          )}
+        </div>
+
+        {interpretation.tldr && !summaryExpanded ? (
+          <p className="text-neutral-200 text-sm leading-relaxed font-medium">
+            {interpretation.tldr}
+          </p>
+        ) : (
+          <p className="text-neutral-300 text-sm leading-relaxed whitespace-pre-line">
+            {interpretation.overall_meaning}
+          </p>
         )}
       </div>
 

@@ -14,6 +14,7 @@ class LyricBreakdown(BaseModel):
 
 
 class InterpretationContent(BaseModel):
+    tldr: Optional[str] = None
     overall_meaning: str
     emotional_tone: str
     themes: list[str]

@@ -2,9 +2,10 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
-from services.anthropic import generate_interpretation
+from services.anthropic import generate_interpretation, REQUIRED_KEYS
 
 VALID_INTERPRETATION = {
+    "tldr": "A song about existential dread.",
     "overall_meaning": "A song about existential dread.",
     "emotional_tone": "melancholic",
     "themes": ["mortality", "identity"],
@@ -104,3 +105,26 @@ async def test_generate_interpretation_includes_discourse_in_user_message():
     assert "Community Commentary" in user_content
     assert "r/hiphopheads" in user_content
     assert "I sipped lean" in user_content
+
+
+@pytest.mark.asyncio
+async def test_generate_interpretation_includes_tldr():
+    valid_response = json.dumps({
+        "tldr": "A song about betrayal and moving on.",
+        "overall_meaning": "This song explores the themes of...",
+        "emotional_tone": "melancholic",
+        "themes": ["loss", "betrayal"],
+        "key_lyric_breakdowns": [{"lyric": "test line", "breakdown": "means this"}],
+    })
+    mock_response = MagicMock()
+    mock_response.content = [MagicMock(text=valid_response)]
+
+    with patch("services.anthropic.anthropic.AsyncAnthropic") as mock_cls:
+        mock_instance = AsyncMock()
+        mock_cls.return_value = mock_instance
+        mock_instance.messages.create = AsyncMock(return_value=mock_response)
+        result, model = await generate_interpretation("Song", "Artist", "lyrics here")
+
+    assert "tldr" in result
+    assert result["tldr"] == "A song about betrayal and moving on."
+    assert "tldr" in REQUIRED_KEYS
