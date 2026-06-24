@@ -127,7 +127,8 @@ async def get_song_details(genius_id: int) -> dict:
 
     album = song.get("album") or {}
     release_date = album.get("release_date_for_display", "") or song.get("release_date_for_display", "")
-    release_year = release_date.split()[-1] if release_date else None
+    year_match = re.search(r"\b(\d{4})\b", release_date) if release_date else None
+    release_year = year_match.group(1) if year_match else None
 
     producers = song.get("producer_artists", [])
     producer = producers[0]["name"] if producers else None

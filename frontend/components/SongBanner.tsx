@@ -1,3 +1,5 @@
+'use client';
+
 import { Song } from '@/types/song';
 
 export default function SongBanner({ song }: { song: Song }) {
@@ -28,6 +30,7 @@ export default function SongBanner({ song }: { song: Song }) {
             alt={`${song.title} album art`}
             width={120}
             height={120}
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
             className="rounded-lg shadow-2xl shrink-0 hidden sm:block"
           />
         )}

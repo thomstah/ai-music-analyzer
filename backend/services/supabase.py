@@ -35,6 +35,9 @@ def store_song(title: str, artist: str, lyrics: str, genius_id: Optional[int] = 
     data = {"title": title, "artist": artist, "lyrics": lyrics}
     if genius_id is not None:
         data["genius_id"] = genius_id
+    # Skip persisting metadata when fetch failed (empty dict). Non-empty dicts with
+    # all-None values still persist, so the song row has a metadata column we can
+    # backfill later.
     if metadata:
         data["metadata"] = metadata
     result = client.table("songs").insert(data).execute()

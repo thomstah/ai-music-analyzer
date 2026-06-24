@@ -166,3 +166,24 @@ async def test_get_song_details_returns_empty_dict_on_error():
         )
         result = await get_song_details(12345)
     assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_get_song_details_returns_none_year_for_non_date_garbage():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "song": {
+                "song_art_image_url": None,
+                "album": {"name": "Album", "release_date_for_display": "TBA"},
+                "producer_artists": [],
+            }
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await get_song_details(12345)
+
+    assert result["release_year"] is None
