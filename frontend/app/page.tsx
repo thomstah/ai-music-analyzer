@@ -3,6 +3,7 @@ import BillboardChart from '@/components/BillboardChart';
 import NewsPanel from '@/components/NewsPanel';
 import TrendingThemes from '@/components/TrendingThemes';
 import SearchResultsList from '@/components/SearchResultsList';
+import FeaturedArtistBanner from '@/components/FeaturedArtistBanner';
 
 export default async function HomePage({
   searchParams,
@@ -35,6 +36,7 @@ export default async function HomePage({
       <p className="text-neutral-400 mb-10">
         Search a song to get Lyriq&apos;s interpretation of the lyrics.
       </p>
+      <FeaturedArtistBanner feature={billboard[0] ?? null} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         <section className="lg:col-span-2">
           <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
