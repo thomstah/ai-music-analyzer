@@ -116,3 +116,8 @@ async def billboard_chart(limit: int = Query(default=10, ge=1, le=100)):
 @router.get("/news")
 async def news(limit: int = Query(default=8, ge=1, le=20)):
     return await news_service.get_music_news(limit)
+
+
+@router.get("/trending/themes")
+async def trending_themes(limit: int = Query(default=5, ge=1, le=20)):
+    return supabase_service.get_trending_themes(limit)

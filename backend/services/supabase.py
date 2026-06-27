@@ -105,3 +105,19 @@ def store_discourse(song_id: str, excerpts: list[dict]) -> dict:
     if not result.data:
         raise RuntimeError("Failed to insert discourse: no data returned")
     return result.data[0]
+
+
+def get_trending_themes(limit: int = 5) -> list[dict]:
+    client = get_client()
+    # Pull interpretations and aggregate in Python. For MVP-scale DB this is fine;
+    # revisit if the table grows past ~10k rows.
+    result = client.table("interpretations").select("content").limit(10000).execute()
+    counts: dict[str, int] = {}
+    for row in result.data or []:
+        themes = (row.get("content") or {}).get("themes") or []
+        for theme in themes:
+            if isinstance(theme, str) and theme.strip():
+                key = theme.strip().lower()
+                counts[key] = counts.get(key, 0) + 1
+    top = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:limit]
+    return [{"theme": t, "count": c} for t, c in top]

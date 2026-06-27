@@ -54,3 +54,8 @@ class Article(BaseModel):
     image_url: Optional[str] = None
     source: str
     published_at: str
+
+
+class TrendingTheme(BaseModel):
+    theme: str
+    count: int

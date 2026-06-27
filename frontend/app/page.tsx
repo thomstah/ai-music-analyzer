@@ -1,6 +1,7 @@
-import { getBillboard, searchSongs, getMusicNews } from '@/lib/api';
+import { getBillboard, searchSongs, getMusicNews, getTrendingThemes } from '@/lib/api';
 import BillboardChart from '@/components/BillboardChart';
 import NewsPanel from '@/components/NewsPanel';
+import TrendingThemes from '@/components/TrendingThemes';
 import SearchResultsList from '@/components/SearchResultsList';
 
 export default async function HomePage({
@@ -23,9 +24,10 @@ export default async function HomePage({
     );
   }
 
-  const [billboard, articles] = await Promise.all([
+  const [billboard, articles, themes] = await Promise.all([
     getBillboard(10),
     getMusicNews(8),
+    getTrendingThemes(8),
   ]);
   return (
     <main className="max-w-6xl mx-auto px-6 py-12">
@@ -40,11 +42,19 @@ export default async function HomePage({
           </h2>
           <BillboardChart songs={billboard} />
         </section>
-        <aside>
-          <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
-            Music News
-          </h2>
-          <NewsPanel articles={articles} />
+        <aside className="space-y-10">
+          <div>
+            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
+              Music News
+            </h2>
+            <NewsPanel articles={articles} />
+          </div>
+          <div>
+            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
+              Trending Themes
+            </h2>
+            <TrendingThemes themes={themes} />
+          </div>
         </aside>
       </div>
     </main>

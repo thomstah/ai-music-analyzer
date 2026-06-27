@@ -70,3 +70,8 @@ export interface Article {
   source: string;
   published_at: string;
 }
+
+export interface TrendingTheme {
+  theme: string;
+  count: number;
+}

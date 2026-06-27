@@ -278,3 +278,19 @@ def test_news_returns_articles():
         response = client.get("/news")
     assert response.status_code == 200
     assert response.json()[0]["title"] == "Test"
+
+
+def test_trending_themes_returns_aggregated_counts():
+    themes_data = [{"theme": "love", "count": 12}, {"theme": "loss", "count": 7}]
+    with patch("routes.songs.supabase_service.get_trending_themes", return_value=themes_data):
+        response = client.get("/trending/themes?limit=5")
+    assert response.status_code == 200
+    assert response.json()[0]["theme"] == "love"
+    assert response.json()[0]["count"] == 12
+
+
+def test_trending_themes_empty_when_no_data():
+    with patch("routes.songs.supabase_service.get_trending_themes", return_value=[]):
+        response = client.get("/trending/themes")
+    assert response.status_code == 200
+    assert response.json() == []
