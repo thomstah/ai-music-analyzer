@@ -326,3 +326,16 @@ async def test_get_album_details_returns_empty_dict_on_error():
         )
         result = await get_album_details(100)
     assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_get_album_details_returns_empty_dict_on_malformed_response():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"unexpected": "shape"}  # No 'response.album'
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await get_album_details(100)
+
+    assert result == {}

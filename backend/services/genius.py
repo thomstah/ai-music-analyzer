@@ -127,7 +127,7 @@ async def get_song_details(genius_id: int) -> dict:
             )
             response.raise_for_status()
             song = response.json()["response"]["song"]
-    except (httpx.HTTPStatusError, httpx.RequestError):
+    except (httpx.HTTPStatusError, httpx.RequestError, KeyError, ValueError):
         return {}
 
     album = song.get("album") or {}
@@ -165,7 +165,7 @@ async def get_album_details(album_id: int) -> dict:
             )
             tracks_resp.raise_for_status()
             tracks_data = tracks_resp.json()["response"].get("songs", [])
-    except (httpx.HTTPStatusError, httpx.RequestError):
+    except (httpx.HTTPStatusError, httpx.RequestError, KeyError, ValueError):
         return {}
 
     release_date = album.get("release_date_for_display", "")

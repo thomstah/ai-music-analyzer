@@ -42,8 +42,14 @@ export default function Tracklist({
           <li key={track.genius_id ?? i}>
             <button
               onClick={() => handleSelect(track)}
-              disabled={!!loadingId}
-              className="w-full flex items-center gap-4 hover:bg-neutral-800 disabled:opacity-60 rounded px-3 py-2 transition-colors text-left"
+              disabled={!!loadingId || !track.genius_id}
+              className={[
+                'w-full flex items-center gap-4 rounded px-3 py-2 transition-colors text-left',
+                track.genius_id
+                  ? 'hover:bg-neutral-800 disabled:opacity-60'
+                  : 'opacity-40 cursor-not-allowed',
+              ].join(' ')}
+              title={track.genius_id ? undefined : 'Track not available'}
             >
               <span className="text-neutral-600 font-medium w-6 text-right text-sm shrink-0">
                 {i + 1}
