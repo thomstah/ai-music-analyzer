@@ -1,3 +1,4 @@
+'use client';
 import { Article } from '@/types/song';
 
 function formatTimeAgo(iso: string): string {
