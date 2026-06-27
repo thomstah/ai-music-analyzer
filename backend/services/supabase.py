@@ -1,9 +1,13 @@
 import logging
+import time
 from supabase import create_client, Client
 from config import settings
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+_trending_themes_cache: dict = {"data": None, "fetched_at": 0.0}
+_TRENDING_THEMES_TTL = 300.0  # 5 minutes
 
 
 def get_client() -> Client:
@@ -108,6 +112,13 @@ def store_discourse(song_id: str, excerpts: list[dict]) -> dict:
 
 
 def get_trending_themes(limit: int = 5) -> list[dict]:
+    now = time.time()
+    if (
+        _trending_themes_cache["data"] is not None
+        and now - _trending_themes_cache["fetched_at"] < _TRENDING_THEMES_TTL
+    ):
+        return _trending_themes_cache["data"][:limit]
+
     client = get_client()
     # Pull interpretations and aggregate in Python. For MVP-scale DB this is fine;
     # revisit if the table grows past ~10k rows.
@@ -119,8 +130,11 @@ def get_trending_themes(limit: int = 5) -> list[dict]:
             if isinstance(theme, str) and theme.strip():
                 key = theme.strip().lower()
                 counts[key] = counts.get(key, 0) + 1
-    top = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:limit]
-    return [{"theme": t, "count": c} for t, c in top]
+    top = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+    aggregated = [{"theme": t, "count": c} for t, c in top]
+    _trending_themes_cache["data"] = aggregated
+    _trending_themes_cache["fetched_at"] = now
+    return aggregated[:limit]
 
 
 def find_album(genius_album_id: int) -> Optional[dict]:
@@ -137,7 +151,7 @@ def find_album(genius_album_id: int) -> Optional[dict]:
 
 def store_album(album_data: dict) -> dict:
     client = get_client()
-    result = client.table("albums").insert(album_data).execute()
+    result = client.table("albums").upsert(album_data, on_conflict="genius_id").execute()
     return result.data[0]
 
 

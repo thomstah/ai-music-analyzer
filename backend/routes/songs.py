@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from models.schemas import AnalyzeRequest
+from models.schemas import AnalyzeRequest, AlbumResponse
 import services.supabase as supabase_service
 import services.genius as genius_service
 import services.anthropic as anthropic_service
@@ -149,7 +149,7 @@ async def trending_themes(limit: int = Query(default=5, ge=1, le=20)):
     return supabase_service.get_trending_themes(limit)
 
 
-@router.get("/album/{album_id}")
+@router.get("/album/{album_id}", response_model=AlbumResponse)
 async def get_album(album_id: str):
     album = await _resolve_album(album_id)
     if not album:
