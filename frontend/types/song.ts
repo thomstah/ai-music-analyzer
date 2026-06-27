@@ -61,3 +61,12 @@ export interface BillboardSong {
   title: string;
   artist: string;
 }
+
+export interface Article {
+  title: string;
+  description: string | null;
+  url: string;
+  image_url: string | null;
+  source: string;
+  published_at: string;
+}

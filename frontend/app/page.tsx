@@ -1,5 +1,6 @@
-import { getBillboard, searchSongs } from '@/lib/api';
+import { getBillboard, searchSongs, getMusicNews } from '@/lib/api';
 import BillboardChart from '@/components/BillboardChart';
+import NewsPanel from '@/components/NewsPanel';
 import SearchResultsList from '@/components/SearchResultsList';
 
 export default async function HomePage({
@@ -22,17 +23,30 @@ export default async function HomePage({
     );
   }
 
-  const billboard = await getBillboard(10);
+  const [billboard, articles] = await Promise.all([
+    getBillboard(10),
+    getMusicNews(8),
+  ]);
   return (
-    <main className="max-w-2xl mx-auto px-6 py-12">
+    <main className="max-w-6xl mx-auto px-6 py-12">
       <h1 className="text-3xl font-black text-white mb-2">What does it mean?</h1>
       <p className="text-neutral-400 mb-10">
         Search a song to get Lyriq&apos;s interpretation of the lyrics.
       </p>
-      <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
-        Billboard Hot 100
-      </h2>
-      <BillboardChart songs={billboard} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <section className="lg:col-span-2">
+          <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
+            Billboard Hot 100
+          </h2>
+          <BillboardChart songs={billboard} />
+        </section>
+        <aside>
+          <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
+            Music News
+          </h2>
+          <NewsPanel articles={articles} />
+        </aside>
+      </div>
     </main>
   );
 }

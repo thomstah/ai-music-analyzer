@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_key: str
     youtube_api_key: str
+    newsapi_key: str = ""
 
     model_config = ConfigDict(env_file=".env", extra="ignore")
 

@@ -270,3 +270,11 @@ def test_billboard_returns_empty_list_on_failure():
         response = client.get("/songs/billboard")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_news_returns_articles():
+    articles = [{"title": "Test", "description": "x", "url": "u", "image_url": None, "source": "S", "published_at": "2026-01-01"}]
+    with patch("routes.songs.news_service.get_music_news", new_callable=AsyncMock, return_value=articles):
+        response = client.get("/news")
+    assert response.status_code == 200
+    assert response.json()[0]["title"] == "Test"

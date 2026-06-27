@@ -45,3 +45,12 @@ class SongResponse(BaseModel):
     interpretation: Optional[InterpretationContent] = None
     community_commentary: Optional[list[DiscourseExcerpt]] = None
     metadata: Optional[SongMetadata] = None
+
+
+class Article(BaseModel):
+    title: str
+    description: Optional[str] = None
+    url: str
+    image_url: Optional[str] = None
+    source: str
+    published_at: str
