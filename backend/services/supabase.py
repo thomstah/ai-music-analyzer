@@ -123,6 +123,36 @@ def get_trending_themes(limit: int = 5) -> list[dict]:
     return [{"theme": t, "count": c} for t, c in top]
 
 
+def find_album(genius_album_id: int) -> Optional[dict]:
+    client = get_client()
+    result = (
+        client.table("albums")
+        .select("*")
+        .eq("genius_id", genius_album_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def store_album(album_data: dict) -> dict:
+    client = get_client()
+    result = client.table("albums").insert(album_data).execute()
+    return result.data[0]
+
+
+def get_album_by_id(album_id: str) -> Optional[dict]:
+    client = get_client()
+    result = (
+        client.table("albums")
+        .select("*")
+        .eq("id", album_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
 def search_cached_albums(query: str, limit: int = 5) -> list[dict]:
     """Find albums by querying songs whose title or artist matches, deduplicating by album_id.
 

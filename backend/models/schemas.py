@@ -29,6 +29,7 @@ class DiscourseExcerpt(BaseModel):
 
 
 class SongMetadata(BaseModel):
+    album_id: Optional[int] = None
     album_art_url: Optional[str] = None
     album_name: Optional[str] = None
     release_year: Optional[str] = None
@@ -66,3 +67,20 @@ class AlbumSearchResult(BaseModel):
     name: str
     artist: str
     thumbnail: Optional[str] = None
+
+
+class AlbumTrack(BaseModel):
+    genius_id: Optional[int] = None
+    title: str
+    thumbnail: Optional[str] = None
+
+
+class AlbumResponse(BaseModel):
+    id: str
+    genius_id: Optional[int] = None
+    title: str
+    artist: str
+    release_year: Optional[str] = None
+    cover_art_url: Optional[str] = None
+    producers: list[str] = []
+    tracklist: list[AlbumTrack] = []

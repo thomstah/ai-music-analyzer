@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
-from services.genius import search_song, fetch_lyrics, normalize_lyrics, get_song_details, search_songs
+from services.genius import search_song, fetch_lyrics, normalize_lyrics, get_song_details, search_songs, get_album_details
 
 
 @pytest.mark.asyncio
@@ -136,7 +136,7 @@ async def test_get_song_details_returns_metadata():
         "response": {
             "song": {
                 "song_art_image_url": "https://images.genius.com/art.jpg",
-                "album": {"name": "Certified Lover Boy", "release_date_for_display": "September 3, 2021"},
+                "album": {"id": 999, "name": "Certified Lover Boy", "release_date_for_display": "September 3, 2021"},
                 "producer_artists": [{"name": "Noah '40' Shebib"}],
             }
         }
@@ -147,6 +147,7 @@ async def test_get_song_details_returns_metadata():
         mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
         result = await get_song_details(12345)
 
+    assert result["album_id"] == 999
     assert result["album_art_url"] == "https://images.genius.com/art.jpg"
     assert result["album_name"] == "Certified Lover Boy"
     assert result["release_year"] == "2021"
@@ -232,3 +233,96 @@ async def test_search_songs_filters_out_genius_translation_accounts():
     assert "Slap The City" in titles
     assert all("Tradução" not in t and "Çeviri" not in t for t in titles)
     assert len(result["songs"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_album_details_returns_album_with_tracklist_and_producers():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "album": {
+                "id": 100,
+                "name": "Certified Lover Boy",
+                "artist": {"name": "Drake"},
+                "release_date_for_display": "September 3, 2021",
+                "cover_art_url": "https://images.genius.com/cover.jpg",
+                "performance_groups": [
+                    {"label": "Producer", "artists": [{"name": "Noah '40' Shebib"}, {"name": "Boi-1da"}]},
+                    {"label": "Writer", "artists": [{"name": "Drake"}]},
+                ],
+            }
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+
+    track_response = MagicMock()
+    track_response.json.return_value = {
+        "response": {
+            "songs": [
+                {"id": 1, "title": "Champagne Poetry", "song_art_image_thumbnail_url": None},
+                {"id": 2, "title": "Papi's Home", "song_art_image_thumbnail_url": None},
+            ]
+        }
+    }
+    track_response.raise_for_status = MagicMock()
+
+    async def fake_get(url, **kwargs):
+        if "/albums/" in url and "/tracks" not in url:
+            return mock_response
+        return track_response
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(side_effect=fake_get)
+        result = await get_album_details(100)
+
+    assert result["title"] == "Certified Lover Boy"
+    assert result["artist"] == "Drake"
+    assert result["release_year"] == "2021"
+    assert result["cover_art_url"] == "https://images.genius.com/cover.jpg"
+    assert result["producers"] == ["Noah '40' Shebib", "Boi-1da"]
+    assert len(result["tracklist"]) == 2
+    assert result["tracklist"][0]["title"] == "Champagne Poetry"
+
+
+@pytest.mark.asyncio
+async def test_get_album_details_returns_empty_producers_when_missing():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "album": {
+                "id": 100,
+                "name": "Album",
+                "artist": {"name": "Artist"},
+                "release_date_for_display": "2024",
+                "cover_art_url": None,
+                "performance_groups": [],
+            }
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+
+    track_response = MagicMock()
+    track_response.json.return_value = {"response": {"songs": []}}
+    track_response.raise_for_status = MagicMock()
+
+    async def fake_get(url, **kwargs):
+        if "/tracks" in url:
+            return track_response
+        return mock_response
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(side_effect=fake_get)
+        result = await get_album_details(100)
+
+    assert result["producers"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_album_details_returns_empty_dict_on_error():
+    import httpx as _httpx
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(
+            side_effect=_httpx.HTTPStatusError("500", request=MagicMock(), response=MagicMock())
+        )
+        result = await get_album_details(100)
+    assert result == {}

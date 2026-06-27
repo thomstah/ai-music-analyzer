@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Song } from '@/types/song';
 
 export default function SongBanner({ song }: { song: Song }) {
@@ -39,7 +40,13 @@ export default function SongBanner({ song }: { song: Song }) {
           <p className="text-neutral-300 text-lg mt-1">{song.artist}</p>
           <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-xs text-neutral-400">
             {meta?.album_name && (
-              <span><span className="text-neutral-500">Album</span> {meta.album_name}</span>
+              meta.album_id ? (
+                <Link href={`/album/${meta.album_id}`} className="hover:text-purple-300 transition-colors">
+                  <span className="text-neutral-500">Album</span> {meta.album_name}
+                </Link>
+              ) : (
+                <span><span className="text-neutral-500">Album</span> {meta.album_name}</span>
+              )
             )}
             {meta?.release_year && (
               <span><span className="text-neutral-500">Year</span> {meta.release_year}</span>

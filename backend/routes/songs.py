@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from models.schemas import AnalyzeRequest
 import services.supabase as supabase_service
@@ -15,6 +16,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 DISCOURSE_TTL_DAYS = 7
+
+
+async def _resolve_album(album_id: str) -> Optional[dict]:
+    # First try a UUID lookup (our DB id)
+    by_uuid = supabase_service.get_album_by_id(album_id)
+    if by_uuid:
+        return by_uuid
+
+    # Then try as a Genius integer id — fetch from Genius and cache
+    try:
+        genius_id_int = int(album_id)
+    except ValueError:
+        return None
+
+    cached = supabase_service.find_album(genius_id_int)
+    if cached:
+        return cached
+
+    fetched = await genius_service.get_album_details(genius_id_int)
+    if not fetched:
+        return None
+
+    return supabase_service.store_album(fetched)
 
 
 def _format_cached(song: dict) -> dict:
@@ -123,3 +147,11 @@ async def news(limit: int = Query(default=8, ge=1, le=20)):
 @router.get("/trending/themes")
 async def trending_themes(limit: int = Query(default=5, ge=1, le=20)):
     return supabase_service.get_trending_themes(limit)
+
+
+@router.get("/album/{album_id}")
+async def get_album(album_id: str):
+    album = await _resolve_album(album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found")
+    return album

@@ -316,3 +316,46 @@ def test_songs_search_handles_query_with_special_chars():
          patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
         response = client.get("/songs/search?q=foo%2Cbar%22baz")  # foo,bar"baz
     assert response.status_code == 200
+
+
+MOCK_ALBUM = {
+    "id": "album-uuid-1",
+    "genius_id": 100,
+    "title": "Album Name",
+    "artist": "Artist",
+    "release_year": "2024",
+    "cover_art_url": "https://images.genius.com/x.jpg",
+    "producers": ["Producer One", "Producer Two"],
+    "tracklist": [{"genius_id": 1, "title": "Track 1", "thumbnail": None}],
+}
+
+
+def test_get_album_returns_cached_album_by_genius_id():
+    with patch("routes.songs.supabase_service.get_album_by_id", return_value=None), \
+         patch("routes.songs.supabase_service.find_album", return_value=MOCK_ALBUM):
+        response = client.get("/album/100")
+    assert response.status_code == 200
+    assert response.json()["title"] == "Album Name"
+
+
+def test_get_album_fetches_from_genius_when_not_cached():
+    fetched = {
+        "genius_id": 100, "title": "New Album", "artist": "A",
+        "release_year": "2024", "cover_art_url": None,
+        "producers": [], "tracklist": [],
+    }
+    with patch("routes.songs.supabase_service.get_album_by_id", return_value=None), \
+         patch("routes.songs.supabase_service.find_album", return_value=None), \
+         patch("routes.songs.genius_service.get_album_details", new_callable=AsyncMock, return_value=fetched), \
+         patch("routes.songs.supabase_service.store_album", return_value={**MOCK_ALBUM, "title": "New Album"}):
+        response = client.get("/album/100")
+    assert response.status_code == 200
+    assert response.json()["title"] == "New Album"
+
+
+def test_get_album_returns_404_when_not_found_anywhere():
+    with patch("routes.songs.supabase_service.get_album_by_id", return_value=None), \
+         patch("routes.songs.supabase_service.find_album", return_value=None), \
+         patch("routes.songs.genius_service.get_album_details", new_callable=AsyncMock, return_value={}):
+        response = client.get("/album/100")
+    assert response.status_code == 404

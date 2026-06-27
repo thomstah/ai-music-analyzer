@@ -19,10 +19,28 @@ export interface Interpretation {
 }
 
 export interface SongMetadata {
+  album_id: number | null;
   album_art_url: string | null;
   album_name: string | null;
   release_year: string | null;
   producer: string | null;
+}
+
+export interface AlbumTrack {
+  genius_id: number | null;
+  title: string;
+  thumbnail: string | null;
+}
+
+export interface Album {
+  id: string;
+  genius_id: number | null;
+  title: string;
+  artist: string;
+  release_year: string | null;
+  cover_art_url: string | null;
+  producers: string[];
+  tracklist: AlbumTrack[];
 }
 
 export interface Song {

@@ -139,10 +139,64 @@ async def get_song_details(genius_id: int) -> dict:
     producer = producers[0]["name"] if producers else None
 
     return {
+        "album_id": album.get("id"),
         "album_art_url": song.get("song_art_image_url"),
         "album_name": album.get("name"),
         "release_year": release_year,
         "producer": producer,
+    }
+
+
+async def get_album_details(album_id: int) -> dict:
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            album_resp = await client.get(
+                f"{GENIUS_API_BASE}/albums/{album_id}",
+                params={"text_format": "plain"},
+                headers={"Authorization": f"Bearer {settings.genius_access_token}"},
+            )
+            album_resp.raise_for_status()
+            album = album_resp.json()["response"]["album"]
+
+            tracks_resp = await client.get(
+                f"{GENIUS_API_BASE}/albums/{album_id}/tracks",
+                params={"text_format": "plain", "per_page": 50},
+                headers={"Authorization": f"Bearer {settings.genius_access_token}"},
+            )
+            tracks_resp.raise_for_status()
+            tracks_data = tracks_resp.json()["response"].get("songs", [])
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        return {}
+
+    release_date = album.get("release_date_for_display", "")
+    year_match = re.search(r"\b(\d{4})\b", release_date) if release_date else None
+    release_year = year_match.group(1) if year_match else None
+
+    producers: list[str] = []
+    for group in album.get("performance_groups") or []:
+        if (group.get("label") or "").lower() == "producer":
+            for artist in group.get("artists") or []:
+                name = artist.get("name")
+                if name and name not in producers:
+                    producers.append(name)
+
+    tracklist = [
+        {
+            "genius_id": t.get("id"),
+            "title": t.get("title", ""),
+            "thumbnail": t.get("song_art_image_thumbnail_url"),
+        }
+        for t in tracks_data
+    ]
+
+    return {
+        "genius_id": album.get("id"),
+        "title": album.get("name", ""),
+        "artist": (album.get("artist") or {}).get("name", ""),
+        "release_year": release_year,
+        "cover_art_url": album.get("cover_art_url"),
+        "producers": producers,
+        "tracklist": tracklist,
     }
 
 
