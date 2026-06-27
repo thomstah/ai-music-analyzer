@@ -124,21 +124,35 @@ def test_songs_search_returns_categorized_results():
         "lyrics": [],
         "artists": [{"name": "Queen", "artist_id": 42, "thumbnail": None}],
     }
-    with patch("routes.songs.genius_service.search_songs", return_value=categorized):
+    with patch("routes.songs.genius_service.search_songs", return_value=categorized), \
+         patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
         response = client.get("/songs/search?q=queen")
     assert response.status_code == 200
     data = response.json()
     assert data["songs"][0]["title"] == "Bohemian Rhapsody"
     assert data["artists"][0]["name"] == "Queen"
     assert data["lyrics"] == []
+    assert data["albums"] == []
 
 
 def test_songs_search_returns_empty_categories_when_no_results():
     empty = {"songs": [], "lyrics": [], "artists": []}
-    with patch("routes.songs.genius_service.search_songs", return_value=empty):
+    with patch("routes.songs.genius_service.search_songs", return_value=empty), \
+         patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
         response = client.get("/songs/search?q=xyznotareal")
     assert response.status_code == 200
-    assert response.json() == {"songs": [], "lyrics": [], "artists": []}
+    assert response.json() == {"songs": [], "lyrics": [], "artists": [], "albums": []}
+
+
+def test_songs_search_includes_albums_from_cache():
+    genius_results = {"songs": [], "lyrics": [], "artists": []}
+    albums = [{"album_id": 100, "name": "Album", "artist": "Artist", "thumbnail": None}]
+    with patch("routes.songs.genius_service.search_songs", return_value=genius_results), \
+         patch("routes.songs.supabase_service.search_cached_albums", return_value=albums):
+        response = client.get("/songs/search?q=test")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["albums"][0]["name"] == "Album"
 
 
 def test_songs_search_requires_q_param():

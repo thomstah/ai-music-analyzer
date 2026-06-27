@@ -15,7 +15,7 @@ export default async function HomePage({
   if (query) {
     const results = await searchSongs(query);
     return (
-      <main className="max-w-2xl mx-auto px-6 py-12">
+      <main className="max-w-6xl mx-auto px-6 py-12">
         <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1">
           Search results
         </p>

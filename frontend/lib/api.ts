@@ -22,7 +22,7 @@ export async function getSongById(id: string): Promise<Song | null> {
 }
 
 export async function searchSongs(q: string): Promise<SearchResults> {
-  const empty: SearchResults = { songs: [], lyrics: [], artists: [] };
+  const empty: SearchResults = { songs: [], lyrics: [], artists: [], albums: [] };
   const res = await fetch(
     `${BASE_URL}/songs/search?q=${encodeURIComponent(q)}`,
     { cache: 'no-store' },

@@ -121,3 +121,35 @@ def get_trending_themes(limit: int = 5) -> list[dict]:
                 counts[key] = counts.get(key, 0) + 1
     top = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:limit]
     return [{"theme": t, "count": c} for t, c in top]
+
+
+def search_cached_albums(query: str, limit: int = 5) -> list[dict]:
+    """Find albums by querying songs whose title or artist matches, deduplicating by album_id."""
+    client = get_client()
+    pattern = f"%{query}%"
+    result = (
+        client.table("songs")
+        .select("metadata, artist")
+        .or_(f"title.ilike.{pattern},artist.ilike.{pattern}")
+        .not_.is_("metadata", "null")
+        .limit(50)
+        .execute()
+    )
+    seen: set[int] = set()
+    albums: list[dict] = []
+    for row in result.data or []:
+        meta = row.get("metadata") or {}
+        album_id = meta.get("album_id")
+        album_name = meta.get("album_name")
+        if not album_id or not album_name or album_id in seen:
+            continue
+        seen.add(album_id)
+        albums.append({
+            "album_id": album_id,
+            "name": album_name,
+            "artist": row.get("artist", ""),
+            "thumbnail": meta.get("album_art_url"),
+        })
+        if len(albums) >= limit:
+            break
+    return albums

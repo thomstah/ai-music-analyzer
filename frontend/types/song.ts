@@ -50,10 +50,18 @@ export interface ArtistResult {
   thumbnail: string | null;
 }
 
+export interface AlbumSearchResult {
+  album_id: number;
+  name: string;
+  artist: string;
+  thumbnail: string | null;
+}
+
 export interface SearchResults {
   songs: SearchResult[];
   lyrics: SearchResult[];
   artists: ArtistResult[];
+  albums: AlbumSearchResult[];
 }
 
 export interface BillboardSong {

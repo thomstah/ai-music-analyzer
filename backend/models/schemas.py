@@ -59,3 +59,10 @@ class Article(BaseModel):
 class TrendingTheme(BaseModel):
     theme: str
     count: int
+
+
+class AlbumSearchResult(BaseModel):
+    album_id: int
+    name: str
+    artist: str
+    thumbnail: Optional[str] = None

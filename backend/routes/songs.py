@@ -42,7 +42,9 @@ def _is_discourse_fresh(row: dict) -> bool:
 
 @router.get("/songs/search")
 async def search_suggestions(q: str = Query(..., min_length=1, max_length=200)):
-    return await genius_service.search_songs(q)
+    genius_results = await genius_service.search_songs(q)
+    albums = supabase_service.search_cached_albums(q, limit=5)
+    return {**genius_results, "albums": albums}
 
 
 @router.post("/analyze")
