@@ -124,14 +124,26 @@ def get_trending_themes(limit: int = 5) -> list[dict]:
 
 
 def search_cached_albums(query: str, limit: int = 5) -> list[dict]:
-    """Find albums by querying songs whose title or artist matches, deduplicating by album_id."""
+    """Find albums by querying songs whose title or artist matches, deduplicating by album_id.
+
+    Fetches up to 50 cached songs (with metadata) matching the query and surfaces
+    up to `limit` distinct albums from them. Returns first-match by creation order
+    for stable artist attribution across calls.
+    """
+    # Strip characters that would break the PostgREST or_ filter syntax.
+    # Quotes wrap each value, but the value itself cannot contain a quote,
+    # a comma, or a parenthesis without breaking the filter parser.
+    safe_query = "".join(c for c in query if c not in '",()').strip()
+    if not safe_query:
+        return []
     client = get_client()
-    pattern = f"%{query}%"
+    pattern = f"%{safe_query}%"
     result = (
         client.table("songs")
-        .select("metadata, artist")
-        .or_(f"title.ilike.{pattern},artist.ilike.{pattern}")
+        .select("metadata, artist, created_at")
+        .or_(f'title.ilike."{pattern}",artist.ilike."{pattern}"')
         .not_.is_("metadata", "null")
+        .order("created_at")
         .limit(50)
         .execute()
     )

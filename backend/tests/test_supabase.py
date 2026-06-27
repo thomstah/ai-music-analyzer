@@ -143,3 +143,26 @@ def test_get_trending_returns_empty_list_when_no_songs():
     with patch("services.supabase.get_client", return_value=client):
         result = get_trending(10)
     assert result == []
+
+
+def test_search_cached_albums_strips_special_chars_from_query():
+    client = MagicMock()
+    client.table.return_value.select.return_value.or_.return_value.not_.is_.return_value.order.return_value.limit.return_value.execute.return_value.data = []
+    with patch("services.supabase.get_client", return_value=client):
+        from services.supabase import search_cached_albums
+        result = search_cached_albums('foo,bar"baz')
+    # Verify the or_ call received a sanitized pattern (no commas, no quotes)
+    or_call_args = client.table.return_value.select.return_value.or_.call_args
+    filter_str = or_call_args[0][0]
+    assert 'foobarbaz' in filter_str
+    assert ',' not in filter_str.replace('"%foobarbaz%",artist', '')  # only the syntactic comma
+    assert '"' in filter_str  # the pattern wrapping quotes
+    assert result == []
+
+
+def test_search_cached_albums_returns_empty_for_empty_query_after_sanitization():
+    with patch("services.supabase.get_client") as mock_client:
+        from services.supabase import search_cached_albums
+        result = search_cached_albums(',,,"""')
+    assert result == []
+    mock_client.assert_not_called()

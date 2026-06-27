@@ -308,3 +308,11 @@ def test_trending_themes_empty_when_no_data():
         response = client.get("/trending/themes")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_songs_search_handles_query_with_special_chars():
+    # Query with commas/quotes/parens should not blow up the SQL filter
+    with patch("routes.songs.genius_service.search_songs", return_value={"songs": [], "lyrics": [], "artists": []}), \
+         patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
+        response = client.get("/songs/search?q=foo%2Cbar%22baz")  # foo,bar"baz
+    assert response.status_code == 200
