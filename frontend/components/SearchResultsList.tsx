@@ -14,10 +14,10 @@ function SectionHeader({ label }: { label: string }) {
   );
 }
 
-function ArtistRow({ artist, onClick }: { artist: ArtistResult; onClick: () => void }) {
+function ArtistRow({ artist }: { artist: ArtistResult }) {
   return (
-    <button
-      onClick={onClick}
+    <Link
+      href={`/artist/${artist.artist_id}`}
       className="w-full flex items-center gap-4 bg-neutral-900 hover:bg-neutral-800 rounded-lg px-4 py-3 transition-colors text-left"
     >
       {artist.thumbnail ? (
@@ -35,7 +35,7 @@ function ArtistRow({ artist, onClick }: { artist: ArtistResult; onClick: () => v
         </div>
       )}
       <p className="text-white font-semibold truncate">{artist.name}</p>
-    </button>
+    </Link>
   );
 }
 
@@ -175,10 +175,6 @@ export default function SearchResultsList({ results }: { results: SearchResults 
     }
   }
 
-  function handleArtistSelect(artist: ArtistResult) {
-    router.push(`/?q=${encodeURIComponent(artist.name)}`);
-  }
-
   return (
     <div>
       {error && <p className="text-red-400 text-xs mb-4">{error}</p>}
@@ -193,7 +189,6 @@ export default function SearchResultsList({ results }: { results: SearchResults 
                 <ArtistRow
                   key={a.artist_id}
                   artist={a}
-                  onClick={() => handleArtistSelect(a)}
                 />
               ))}
             </div>

@@ -37,7 +37,16 @@ export default function SongBanner({ song }: { song: Song }) {
         )}
         <div className="min-w-0">
           <h1 className="text-3xl font-black text-white leading-tight">{song.title}</h1>
-          <p className="text-neutral-300 text-lg mt-1">{song.artist}</p>
+          {song.metadata?.artist_id ? (
+            <Link
+              href={`/artist/${song.metadata.artist_id}`}
+              className="text-neutral-300 text-lg mt-1 inline-block hover:text-purple-300 transition-colors"
+            >
+              {song.artist}
+            </Link>
+          ) : (
+            <p className="text-neutral-300 text-lg mt-1">{song.artist}</p>
+          )}
           <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-xs text-neutral-400">
             {meta?.album_name && (
               meta.album_id ? (
