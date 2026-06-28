@@ -404,3 +404,57 @@ def test_get_album_uuid_id_does_not_call_find_album():
         response = client.get("/album/a1b2c3d4-e5f6-7890-abcd-ef1234567890")
     assert response.status_code == 200
     mock_genius_cache.assert_not_called()
+
+
+MOCK_ARTIST = {
+    "id": "artist-uuid-1",
+    "genius_id": 130,
+    "deezer_id": 246791,
+    "name": "Drake",
+    "alternate_names": ["Aubrey Graham"],
+    "image_url": "https://img/drake.jpg",
+    "header_image_url": "https://img/drake_header.jpg",
+    "description_preview": "Canadian rapper.",
+    "top_songs": [{"genius_id": 1, "title": "God's Plan", "thumbnail": None, "artist_name": "Drake"}],
+    "top_albums": [{"album_id_deezer": 100, "title": "Scorpion", "cover_url": None, "release_year": "2018"}],
+}
+
+
+def test_get_artist_by_genius_id_returns_cached():
+    with patch("routes.songs.supabase_service.find_artist_by_genius_id", return_value=MOCK_ARTIST):
+        response = client.get("/artist/130")
+    assert response.status_code == 200
+    assert response.json()["name"] == "Drake"
+    assert response.json()["top_songs"][0]["title"] == "God's Plan"
+
+
+def test_get_artist_hydrates_when_not_cached():
+    with patch("routes.songs.supabase_service.find_artist_by_genius_id", return_value=None), \
+         patch("routes.songs.genius_service.get_artist_details", new_callable=AsyncMock, return_value={"genius_id": 130, "name": "Drake", "alternate_names": [], "image_url": "u", "header_image_url": "h", "description_preview": "bio"}), \
+         patch("routes.songs.genius_service.get_artist_top_songs", new_callable=AsyncMock, return_value=[]), \
+         patch("routes.songs.deezer_service.search_artist_by_name", new_callable=AsyncMock, return_value={"id": 246791, "picture_xl": "dx"}), \
+         patch("routes.songs.deezer_service.get_artist_albums", new_callable=AsyncMock, return_value=[]), \
+         patch("routes.songs.supabase_service.store_artist", return_value=MOCK_ARTIST):
+        response = client.get("/artist/130")
+    assert response.status_code == 200
+    assert response.json()["name"] == "Drake"
+
+
+def test_get_artist_returns_404_when_not_found():
+    with patch("routes.songs.supabase_service.find_artist_by_genius_id", return_value=None), \
+         patch("routes.songs.genius_service.get_artist_details", new_callable=AsyncMock, return_value={}):
+        response = client.get("/artist/9999999")
+    assert response.status_code == 404
+
+
+def test_artist_by_name_returns_genius_id():
+    with patch("routes.songs.genius_service.search_artist_id_by_name", new_callable=AsyncMock, return_value=130):
+        response = client.get("/artist/by-name/Drake")
+    assert response.status_code == 200
+    assert response.json()["genius_id"] == 130
+
+
+def test_artist_by_name_returns_404_when_no_match():
+    with patch("routes.songs.genius_service.search_artist_id_by_name", new_callable=AsyncMock, return_value=None):
+        response = client.get("/artist/by-name/zzz")
+    assert response.status_code == 404

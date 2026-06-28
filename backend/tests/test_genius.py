@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
-from services.genius import search_song, fetch_lyrics, normalize_lyrics, get_song_details, search_songs, get_album_details
+from services.genius import search_song, fetch_lyrics, normalize_lyrics, get_song_details, search_songs, get_album_details, get_artist_details, get_artist_top_songs
 
 
 @pytest.mark.asyncio
@@ -138,6 +138,7 @@ async def test_get_song_details_returns_metadata():
                 "song_art_image_url": "https://images.genius.com/art.jpg",
                 "album": {"id": 999, "name": "Certified Lover Boy", "release_date_for_display": "September 3, 2021"},
                 "producer_artists": [{"name": "Noah '40' Shebib"}],
+                "primary_artist": {"id": 555, "name": "Drake"},
             }
         }
     }
@@ -147,6 +148,7 @@ async def test_get_song_details_returns_metadata():
         mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
         result = await get_song_details(12345)
 
+    assert result["artist_id"] == 555
     assert result["album_id"] == 999
     assert result["album_art_url"] == "https://images.genius.com/art.jpg"
     assert result["album_name"] == "Certified Lover Boy"
@@ -243,7 +245,7 @@ async def test_get_album_details_returns_album_with_tracklist_and_producers():
             "album": {
                 "id": 100,
                 "name": "Certified Lover Boy",
-                "artist": {"name": "Drake"},
+                "artist": {"id": 130, "name": "Drake"},
                 "release_date_for_display": "September 3, 2021",
                 "cover_art_url": "https://images.genius.com/cover.jpg",
                 "performance_groups": [
@@ -277,6 +279,7 @@ async def test_get_album_details_returns_album_with_tracklist_and_producers():
 
     assert result["title"] == "Certified Lover Boy"
     assert result["artist"] == "Drake"
+    assert result["artist_id"] == 130
     assert result["release_year"] == "2021"
     assert result["cover_art_url"] == "https://images.genius.com/cover.jpg"
     assert result["producers"] == ["Noah '40' Shebib", "Boi-1da"]
@@ -338,4 +341,61 @@ async def test_get_album_details_returns_empty_dict_on_malformed_response():
         mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
         result = await get_album_details(100)
 
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_get_artist_details_returns_bio_and_image():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "artist": {
+                "id": 130,
+                "name": "Drake",
+                "alternate_names": ["Aubrey Graham"],
+                "image_url": "https://images.genius.com/profile.jpg",
+                "header_image_url": "https://images.genius.com/header.jpg",
+                "description": {"plain": "Aubrey Drake Graham, born October 24, 1986."},
+            }
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await get_artist_details(130)
+    assert result["name"] == "Drake"
+    assert result["alternate_names"] == ["Aubrey Graham"]
+    assert result["image_url"] == "https://images.genius.com/profile.jpg"
+    assert result["header_image_url"] == "https://images.genius.com/header.jpg"
+    assert "Aubrey Drake Graham" in result["description_preview"]
+
+
+@pytest.mark.asyncio
+async def test_get_artist_top_songs_returns_song_list():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "songs": [
+                {"id": 1, "title": "God's Plan", "song_art_image_thumbnail_url": "u1", "primary_artist_names": "Drake"},
+                {"id": 2, "title": "Hotline Bling", "song_art_image_thumbnail_url": "u2", "primary_artist_names": "Drake"},
+            ]
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        songs = await get_artist_top_songs(130, limit=10)
+    assert len(songs) == 2
+    assert songs[0]["title"] == "God's Plan"
+    assert songs[0]["genius_id"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_artist_details_returns_empty_dict_on_error():
+    import httpx as _httpx
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(
+            side_effect=_httpx.HTTPStatusError("500", request=MagicMock(), response=MagicMock())
+        )
+        result = await get_artist_details(130)
     assert result == {}

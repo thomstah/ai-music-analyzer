@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 import httpx
 from bs4 import BeautifulSoup
 from fastapi import HTTPException
@@ -139,6 +140,7 @@ async def get_song_details(genius_id: int) -> dict:
     producer = producers[0]["name"] if producers else None
 
     return {
+        "artist_id": (song.get("primary_artist") or {}).get("id"),
         "album_id": album.get("id"),
         "album_art_url": song.get("song_art_image_url"),
         "album_name": album.get("name"),
@@ -194,6 +196,7 @@ async def get_album_details(album_id: int) -> dict:
 
     return {
         "genius_id": album.get("id"),
+        "artist_id": (album.get("artist") or {}).get("id"),
         "title": album.get("name", ""),
         "artist": (album.get("artist") or {}).get("name", ""),
         "release_year": release_year,
@@ -201,6 +204,87 @@ async def get_album_details(album_id: int) -> dict:
         "producers": producers,
         "tracklist": tracklist,
     }
+
+
+async def get_artist_details(artist_id: int) -> dict:
+    """Fetch artist bio, header image, alternate names from Genius."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{GENIUS_API_BASE}/artists/{artist_id}",
+                params={"text_format": "plain"},
+                headers={"Authorization": f"Bearer {settings.genius_access_token}"},
+            )
+            response.raise_for_status()
+            artist = response.json()["response"]["artist"]
+    except (httpx.HTTPStatusError, httpx.RequestError, KeyError, ValueError):
+        return {}
+
+    description = artist.get("description") or {}
+    description_preview = ""
+    if isinstance(description, dict):
+        full = (description.get("plain") or "").strip()
+        if full:
+            description_preview = full[:300] + ("…" if len(full) > 300 else "")
+
+    return {
+        "genius_id": artist.get("id"),
+        "name": artist.get("name", ""),
+        "alternate_names": artist.get("alternate_names") or [],
+        "image_url": artist.get("image_url"),
+        "header_image_url": artist.get("header_image_url"),
+        "description_preview": description_preview,
+    }
+
+
+async def get_artist_top_songs(artist_id: int, limit: int = 10) -> list[dict]:
+    """Fetch the artist's most popular songs on Genius."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{GENIUS_API_BASE}/artists/{artist_id}/songs",
+                params={"sort": "popularity", "per_page": limit, "text_format": "plain"},
+                headers={"Authorization": f"Bearer {settings.genius_access_token}"},
+            )
+            response.raise_for_status()
+            songs = response.json()["response"].get("songs", [])
+    except (httpx.HTTPStatusError, httpx.RequestError, KeyError, ValueError):
+        return []
+    return [
+        {
+            "genius_id": s.get("id"),
+            "title": s.get("title", ""),
+            "thumbnail": s.get("song_art_image_thumbnail_url"),
+            "artist_name": s.get("primary_artist_names") or s.get("artist_names") or "",
+        }
+        for s in songs
+        if s.get("id")
+    ]
+
+
+async def search_artist_id_by_name(name: str) -> Optional[int]:
+    """Find an artist ID by name via Genius search."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{GENIUS_API_BASE}/search",
+                params={"q": name},
+                headers={"Authorization": f"Bearer {settings.genius_access_token}"},
+            )
+            response.raise_for_status()
+            hits = response.json()["response"].get("hits", [])
+    except (httpx.HTTPStatusError, httpx.RequestError, KeyError, ValueError):
+        return None
+    name_lower = name.lower()
+    for h in hits:
+        primary = (h.get("result") or {}).get("primary_artist") or {}
+        if primary.get("id") and name_lower in (primary.get("name") or "").lower():
+            return primary["id"]
+    # Fall back to first hit's primary artist
+    if hits:
+        primary = (hits[0].get("result") or {}).get("primary_artist") or {}
+        return primary.get("id")
+    return None
 
 
 def normalize_lyrics(lyrics: str) -> str:

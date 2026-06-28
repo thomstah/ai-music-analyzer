@@ -175,6 +175,38 @@ def get_album_by_id(album_id: str) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 
+def find_artist_by_genius_id(genius_artist_id: int) -> Optional[dict]:
+    client = get_client()
+    result = (
+        client.table("artists")
+        .select("*")
+        .eq("genius_id", genius_artist_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def store_artist(artist_data: dict) -> dict:
+    client = get_client()
+    result = client.table("artists").upsert(artist_data, on_conflict="genius_id").execute()
+    if not result.data:
+        raise RuntimeError("Failed to insert artist: no data returned")
+    return result.data[0]
+
+
+def get_artist_by_id(artist_id: str) -> Optional[dict]:
+    client = get_client()
+    result = (
+        client.table("artists")
+        .select("*")
+        .eq("id", artist_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
 def search_cached_albums(query: str, limit: int = 5) -> list[dict]:
     """Find albums whose name, song title, or artist matches the query.
 

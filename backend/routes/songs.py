@@ -4,9 +4,10 @@ import re
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from models.schemas import AnalyzeRequest, AlbumResponse
+from models.schemas import AnalyzeRequest, AlbumResponse, ArtistResponse
 import services.supabase as supabase_service
 import services.genius as genius_service
+import services.deezer as deezer_service
 import services.anthropic as anthropic_service
 import services.discourse as discourse_service
 import services.billboard as billboard_service
@@ -174,3 +175,67 @@ async def get_album(album_id: str):
     if not album:
         raise HTTPException(status_code=404, detail="Album not found")
     return album
+
+
+async def _hydrate_artist(genius_artist_id: int) -> Optional[dict]:
+    """Fetch artist data from Genius + Deezer and store in our DB."""
+    genius_data = await genius_service.get_artist_details(genius_artist_id)
+    if not genius_data or not genius_data.get("name"):
+        return None
+    top_songs = await genius_service.get_artist_top_songs(genius_artist_id, limit=10)
+
+    deezer_artist = await deezer_service.search_artist_by_name(genius_data["name"])
+    deezer_id = (deezer_artist or {}).get("id")
+    top_albums = []
+    image_url = genius_data.get("image_url")
+    if deezer_id:
+        top_albums = await deezer_service.get_artist_albums(deezer_id, limit=6)
+        deezer_picture = (deezer_artist or {}).get("picture_xl") or (deezer_artist or {}).get("picture_big")
+        if deezer_picture:
+            image_url = deezer_picture
+
+    row = {
+        "genius_id": genius_data["genius_id"],
+        "deezer_id": deezer_id,
+        "name": genius_data["name"],
+        "alternate_names": genius_data.get("alternate_names") or [],
+        "image_url": image_url,
+        "header_image_url": genius_data.get("header_image_url"),
+        "description_preview": genius_data.get("description_preview"),
+        "top_songs": top_songs,
+        "top_albums": top_albums,
+    }
+    return supabase_service.store_artist(row)
+
+
+async def _resolve_artist(artist_id: str) -> Optional[dict]:
+    if _UUID_RE.match(artist_id):
+        return supabase_service.get_artist_by_id(artist_id)
+
+    try:
+        genius_id_int = int(artist_id)
+    except ValueError:
+        return None
+
+    cached = supabase_service.find_artist_by_genius_id(genius_id_int)
+    if cached:
+        return cached
+
+    return await _hydrate_artist(genius_id_int)
+
+
+@router.get("/artist/by-name/{name}")
+async def lookup_artist_by_name(name: str):
+    """Resolve an artist name → Genius artist ID. Used by Billboard rows."""
+    genius_id = await genius_service.search_artist_id_by_name(name)
+    if not genius_id:
+        raise HTTPException(status_code=404, detail="Artist not found")
+    return {"genius_id": genius_id}
+
+
+@router.get("/artist/{artist_id}", response_model=ArtistResponse)
+async def get_artist(artist_id: str):
+    artist = await _resolve_artist(artist_id)
+    if not artist:
+        raise HTTPException(status_code=404, detail="Artist not found")
+    return artist

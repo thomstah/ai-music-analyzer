@@ -29,6 +29,7 @@ class DiscourseExcerpt(BaseModel):
 
 
 class SongMetadata(BaseModel):
+    artist_id: Optional[int] = None
     album_id: Optional[int] = None
     album_art_url: Optional[str] = None
     album_name: Optional[str] = None
@@ -78,9 +79,37 @@ class AlbumTrack(BaseModel):
 class AlbumResponse(BaseModel):
     id: str
     genius_id: Optional[int] = None
+    artist_id: Optional[int] = None
     title: str
     artist: str
     release_year: Optional[str] = None
     cover_art_url: Optional[str] = None
     producers: list[str] = []
     tracklist: list[AlbumTrack] = []
+
+
+class ArtistTopSong(BaseModel):
+    genius_id: int
+    title: str
+    thumbnail: Optional[str] = None
+    artist_name: str = ""
+
+
+class ArtistTopAlbum(BaseModel):
+    album_id_deezer: int
+    title: str
+    cover_url: Optional[str] = None
+    release_year: Optional[str] = None
+
+
+class ArtistResponse(BaseModel):
+    id: str
+    genius_id: Optional[int] = None
+    deezer_id: Optional[int] = None
+    name: str
+    alternate_names: list[str] = []
+    image_url: Optional[str] = None
+    header_image_url: Optional[str] = None
+    description_preview: Optional[str] = None
+    top_songs: list[ArtistTopSong] = []
+    top_albums: list[ArtistTopAlbum] = []
