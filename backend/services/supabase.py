@@ -168,21 +168,19 @@ def get_album_by_id(album_id: str) -> Optional[dict]:
 
 
 def search_cached_albums(query: str, limit: int = 5) -> list[dict]:
-    """Find albums by querying songs whose title or artist matches, deduplicating by album_id.
+    """Find albums whose name, song title, or artist matches the query.
 
-    Fetches up to 50 cached songs (with metadata) matching the query and surfaces
-    up to `limit` distinct albums from them. Returns first-match by creation order
-    for stable artist attribution across calls.
+    Runs two queries (one on songs by title/artist, one on songs by album_name
+    inside metadata JSONB), merges results, deduplicates by album_id.
     """
     # Strip characters that would break the PostgREST or_ filter syntax.
-    # Quotes wrap each value, but the value itself cannot contain a quote,
-    # a comma, or a parenthesis without breaking the filter parser.
     safe_query = "".join(c for c in query if c not in '",()').strip()
     if not safe_query:
         return []
     client = get_client()
     pattern = f"%{safe_query}%"
-    result = (
+
+    songs_match = (
         client.table("songs")
         .select("metadata, artist, created_at")
         .or_(f'title.ilike."{pattern}",artist.ilike."{pattern}"')
@@ -191,6 +189,21 @@ def search_cached_albums(query: str, limit: int = 5) -> list[dict]:
         .limit(50)
         .execute()
     )
+
+    # Separate query for albums whose name (in JSONB metadata) matches.
+    # JSONB key filter via PostgREST: metadata->>album_name
+    albums_match = (
+        client.table("songs")
+        .select("metadata, artist, created_at")
+        .ilike("metadata->>album_name", pattern)
+        .order("created_at")
+        .limit(50)
+        .execute()
+    )
+
+    result = type("MergedResult", (), {
+        "data": (songs_match.data or []) + (albums_match.data or [])
+    })()
     seen: set[int] = set()
     albums: list[dict] = []
     for row in result.data or []:

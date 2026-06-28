@@ -258,9 +258,9 @@ async def test_get_album_details_returns_album_with_tracklist_and_producers():
     track_response = MagicMock()
     track_response.json.return_value = {
         "response": {
-            "songs": [
-                {"id": 1, "title": "Champagne Poetry", "song_art_image_thumbnail_url": None},
-                {"id": 2, "title": "Papi's Home", "song_art_image_thumbnail_url": None},
+            "tracks": [
+                {"number": 1, "song": {"id": 1, "title": "Champagne Poetry", "song_art_image_thumbnail_url": None}},
+                {"number": 2, "song": {"id": 2, "title": "Papi's Home", "song_art_image_thumbnail_url": None}},
             ]
         }
     }
@@ -302,7 +302,7 @@ async def test_get_album_details_returns_empty_producers_when_missing():
     mock_response.raise_for_status = MagicMock()
 
     track_response = MagicMock()
-    track_response.json.return_value = {"response": {"songs": []}}
+    track_response.json.return_value = {"response": {"tracks": []}}
     track_response.raise_for_status = MagicMock()
 
     async def fake_get(url, **kwargs):

@@ -164,7 +164,8 @@ async def get_album_details(album_id: int) -> dict:
                 headers={"Authorization": f"Bearer {settings.genius_access_token}"},
             )
             tracks_resp.raise_for_status()
-            tracks_data = tracks_resp.json()["response"].get("songs", [])
+            # Genius returns response.tracks[].song, NOT response.songs[]
+            tracks_data = tracks_resp.json()["response"].get("tracks", [])
     except (httpx.HTTPStatusError, httpx.RequestError, KeyError, ValueError):
         return {}
 
@@ -180,14 +181,16 @@ async def get_album_details(album_id: int) -> dict:
                 if name and name not in producers:
                     producers.append(name)
 
-    tracklist = [
-        {
-            "genius_id": t.get("id"),
-            "title": t.get("title", ""),
-            "thumbnail": t.get("song_art_image_thumbnail_url"),
-        }
-        for t in tracks_data
-    ]
+    tracklist = []
+    for t in tracks_data:
+        song = t.get("song") or {}
+        if not song.get("id"):
+            continue
+        tracklist.append({
+            "genius_id": song.get("id"),
+            "title": song.get("title", ""),
+            "thumbnail": song.get("song_art_image_thumbnail_url"),
+        })
 
     return {
         "genius_id": album.get("id"),
