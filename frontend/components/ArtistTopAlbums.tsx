@@ -1,3 +1,4 @@
+'use client';
 import Link from 'next/link';
 import { ArtistTopAlbum } from '@/types/song';
 
