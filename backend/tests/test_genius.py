@@ -399,3 +399,31 @@ async def test_get_artist_details_returns_empty_dict_on_error():
         )
         result = await get_artist_details(130)
     assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_get_artist_details_truncates_long_bio_at_word_boundary():
+    long_bio = ("Aubrey " * 100).strip()  # ~700 chars
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "artist": {
+                "id": 130,
+                "name": "Drake",
+                "alternate_names": [],
+                "image_url": None,
+                "header_image_url": None,
+                "description": {"plain": long_bio},
+            }
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await get_artist_details(130)
+    preview = result["description_preview"]
+    assert preview.endswith("…")
+    assert len(preview) <= 301  # 300 chars + ellipsis
+    # Should not end mid-word (last char before ellipsis is not a partial fragment)
+    assert not preview.replace("…", "").endswith("Aubre")
+    assert not preview.replace("…", "").endswith("Aubr")

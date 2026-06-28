@@ -180,7 +180,7 @@ async def get_album(album_id: str):
 async def _hydrate_artist(genius_artist_id: int) -> Optional[dict]:
     """Fetch artist data from Genius + Deezer and store in our DB."""
     genius_data = await genius_service.get_artist_details(genius_artist_id)
-    if not genius_data or not genius_data.get("name"):
+    if not genius_data or not (genius_data.get("name") or "").strip():
         return None
     top_songs = await genius_service.get_artist_top_songs(genius_artist_id, limit=10)
 

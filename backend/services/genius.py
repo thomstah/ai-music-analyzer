@@ -225,7 +225,13 @@ async def get_artist_details(artist_id: int) -> dict:
     if isinstance(description, dict):
         full = (description.get("plain") or "").strip()
         if full:
-            description_preview = full[:300] + ("…" if len(full) > 300 else "")
+            if len(full) > 300:
+                # Snap to last whitespace before 300 to avoid mid-word cuts
+                snap = full.rfind(" ", 0, 300)
+                cut_at = snap if snap > 200 else 300
+                description_preview = full[:cut_at].rstrip() + "…"
+            else:
+                description_preview = full
 
     return {
         "genius_id": artist.get("id"),
