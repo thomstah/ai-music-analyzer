@@ -19,6 +19,7 @@ export interface Interpretation {
 }
 
 export interface SongMetadata {
+  artist_id: number | null;
   album_id: number | null;
   album_art_url: string | null;
   album_name: string | null;
@@ -35,6 +36,7 @@ export interface AlbumTrack {
 export interface Album {
   id: string;
   genius_id: number | null;
+  artist_id: number | null;
   title: string;
   artist: string;
   release_year: string | null;
@@ -100,4 +102,31 @@ export interface Article {
 export interface TrendingTheme {
   theme: string;
   count: number;
+}
+
+export interface ArtistTopSong {
+  genius_id: number;
+  title: string;
+  thumbnail: string | null;
+  artist_name: string;
+}
+
+export interface ArtistTopAlbum {
+  album_id_deezer: number;
+  title: string;
+  cover_url: string | null;
+  release_year: string | null;
+}
+
+export interface Artist {
+  id: string;
+  genius_id: number | null;
+  deezer_id: number | null;
+  name: string;
+  alternate_names: string[];
+  image_url: string | null;
+  header_image_url: string | null;
+  description_preview: string | null;
+  top_songs: ArtistTopSong[];
+  top_albums: ArtistTopAlbum[];
 }

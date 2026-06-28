@@ -1,4 +1,4 @@
-import { Song, SearchResults, BillboardSong, Article, TrendingTheme, Album } from '@/types/song';
+import { Song, SearchResults, BillboardSong, Article, TrendingTheme, Album, Artist } from '@/types/song';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -55,4 +55,17 @@ export async function getAlbumById(albumId: string | number): Promise<Album | nu
   const res = await fetch(`${BASE_URL}/album/${albumId}`, { cache: 'no-store' });
   if (!res.ok) return null;
   return res.json();
+}
+
+export async function getArtistById(artistId: string | number): Promise<Artist | null> {
+  const res = await fetch(`${BASE_URL}/artist/${artistId}`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function lookupArtistByName(name: string): Promise<number | null> {
+  const res = await fetch(`${BASE_URL}/artist/by-name/${encodeURIComponent(name)}`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  const data = await res.json() as { genius_id: number };
+  return data.genius_id;
 }
