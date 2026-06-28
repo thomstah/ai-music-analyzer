@@ -427,3 +427,83 @@ async def test_get_artist_details_truncates_long_bio_at_word_boundary():
     # Should not end mid-word (last char before ellipsis is not a partial fragment)
     assert not preview.replace("…", "").endswith("Aubre")
     assert not preview.replace("…", "").endswith("Aubr")
+
+
+@pytest.mark.asyncio
+async def test_get_artist_details_returns_both_preview_and_full():
+    mock_response = MagicMock()
+    long_bio = "Sentence. " * 50  # 500 chars
+    mock_response.json.return_value = {
+        "response": {
+            "artist": {
+                "id": 130,
+                "name": "Drake",
+                "alternate_names": [],
+                "image_url": None,
+                "header_image_url": None,
+                "description": {"plain": long_bio},
+            }
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await get_artist_details(130)
+    assert result["description_full"] == long_bio.strip()
+    assert len(result["description_preview"]) < len(result["description_full"])
+
+
+@pytest.mark.asyncio
+async def test_search_song_prefers_non_compilation_release():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "hits": [
+                {
+                    "result": {
+                        "id": 999,
+                        "url": "https://genius.com/marvin-gaye-jtkys-the-master-1961-1984-lyrics",
+                        "full_title": "Just to Keep You Satisfied by Marvin Gaye (The Master 1961-1984)",
+                        "primary_artist": {"name": "Marvin Gaye"},
+                    }
+                },
+                {
+                    "result": {
+                        "id": 100,
+                        "url": "https://genius.com/marvin-gaye-just-to-keep-you-satisfied-lyrics",
+                        "full_title": "Just to Keep You Satisfied by Marvin Gaye",
+                        "primary_artist": {"name": "Marvin Gaye"},
+                    }
+                },
+            ]
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await search_song("Just to Keep You Satisfied", "Marvin Gaye")
+    assert result["genius_id"] == 100
+
+
+@pytest.mark.asyncio
+async def test_search_song_falls_back_to_compilation_when_only_choice():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "hits": [
+                {
+                    "result": {
+                        "id": 500,
+                        "url": "https://genius.com/x-greatest-hits-lyrics",
+                        "full_title": "Some Song by X (Greatest Hits)",
+                        "primary_artist": {"name": "X"},
+                    }
+                },
+            ]
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await search_song("Some Song", "X")
+    assert result["genius_id"] == 500

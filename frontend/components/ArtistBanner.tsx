@@ -1,9 +1,14 @@
 'use client';
+import { useState } from 'react';
 import { Artist } from '@/types/song';
 
 export default function ArtistBanner({ artist }: { artist: Artist }) {
   const header = artist.header_image_url;
   const photo = artist.image_url;
+  const [expanded, setExpanded] = useState(false);
+  const preview = artist.description_preview;
+  const full = artist.description_full;
+  const hasMore = !!full && !!preview && full.length > preview.length;
 
   return (
     <div className="relative overflow-hidden rounded-xl mb-8 min-h-56">
@@ -39,10 +44,21 @@ export default function ArtistBanner({ artist }: { artist: Artist }) {
               <span className="text-neutral-500">AKA</span> {artist.alternate_names.join(', ')}
             </p>
           )}
-          {artist.description_preview && (
-            <p className="text-neutral-300 text-sm leading-relaxed mt-3 max-w-2xl">
-              {artist.description_preview}
-            </p>
+          {preview && (
+            <div className="mt-3 max-w-2xl">
+              <p className="text-neutral-300 text-sm leading-relaxed whitespace-pre-line">
+                {expanded && full ? full : preview}
+              </p>
+              {hasMore && (
+                <button
+                  onClick={() => setExpanded(v => !v)}
+                  aria-expanded={expanded}
+                  className="text-purple-400 text-xs hover:underline mt-2"
+                >
+                  {expanded ? 'Show less' : 'Show more'}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -202,6 +202,7 @@ async def _hydrate_artist(genius_artist_id: int) -> Optional[dict]:
         "image_url": image_url,
         "header_image_url": genius_data.get("header_image_url"),
         "description_preview": genius_data.get("description_preview"),
+        "description_full": genius_data.get("description_full"),
         "top_songs": top_songs,
         "top_albums": top_albums,
     }

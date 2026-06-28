@@ -127,6 +127,7 @@ export interface Artist {
   image_url: string | null;
   header_image_url: string | null;
   description_preview: string | null;
+  description_full: string | null;
   top_songs: ArtistTopSong[];
   top_albums: ArtistTopAlbum[];
 }

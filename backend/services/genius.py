@@ -8,6 +8,22 @@ from config import settings
 GENIUS_API_BASE = "https://api.genius.com"
 
 
+_COMPILATION_KEYWORDS = (
+    "master", "anthology", "greatest hits", "best of",
+    "box set", "the collection", "compilation",
+)
+
+
+def _looks_like_compilation(hit_result: dict) -> bool:
+    """Detect Genius hits that point at box-set/compilation releases rather than the original album."""
+    text = (
+        (hit_result.get("full_title") or "")
+        + " "
+        + (hit_result.get("url") or "")
+    ).lower()
+    return any(kw in text for kw in _COMPILATION_KEYWORDS)
+
+
 async def search_song(title: str, artist: str) -> dict:
     query = f"{title} {artist}"
     try:
@@ -27,11 +43,16 @@ async def search_song(title: str, artist: str) -> dict:
         raise HTTPException(status_code=404, detail=f"Song '{title}' by '{artist}' not found on Genius")
 
     artist_lower = artist.lower()
-    hit = next(
-        (h["result"] for h in hits
-         if artist_lower in h["result"].get("primary_artist", {}).get("name", "").lower()),
-        hits[0]["result"],
-    )
+    matching = [
+        h["result"] for h in hits
+        if artist_lower in h["result"].get("primary_artist", {}).get("name", "").lower()
+    ]
+    if not matching:
+        matching = [hits[0]["result"]]
+
+    # Prefer non-compilation releases (avoid "Greatest Hits", "The Master (1961-1984)", etc.)
+    non_comp = [h for h in matching if not _looks_like_compilation(h)]
+    hit = (non_comp or matching)[0]
     return {"url": hit["url"], "genius_id": hit["id"]}
 
 
@@ -222,9 +243,11 @@ async def get_artist_details(artist_id: int) -> dict:
 
     description = artist.get("description") or {}
     description_preview = ""
+    description_full = ""
     if isinstance(description, dict):
         full = (description.get("plain") or "").strip()
         if full:
+            description_full = full
             if len(full) > 300:
                 # Snap to last whitespace before 300 to avoid mid-word cuts
                 snap = full.rfind(" ", 0, 300)
@@ -240,6 +263,7 @@ async def get_artist_details(artist_id: int) -> dict:
         "image_url": artist.get("image_url"),
         "header_image_url": artist.get("header_image_url"),
         "description_preview": description_preview,
+        "description_full": description_full,
     }
 
 

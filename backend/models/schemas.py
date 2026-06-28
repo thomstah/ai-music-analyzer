@@ -111,5 +111,6 @@ class ArtistResponse(BaseModel):
     image_url: Optional[str] = None
     header_image_url: Optional[str] = None
     description_preview: Optional[str] = None
+    description_full: Optional[str] = None
     top_songs: list[ArtistTopSong] = []
     top_albums: list[ArtistTopAlbum] = []
