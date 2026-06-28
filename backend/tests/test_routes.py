@@ -359,3 +359,22 @@ def test_get_album_returns_404_when_not_found_anywhere():
          patch("routes.songs.genius_service.get_album_details", new_callable=AsyncMock, return_value={}):
         response = client.get("/album/100")
     assert response.status_code == 404
+
+
+def test_get_album_integer_id_skips_uuid_lookup():
+    # Bug fix: a numeric album_id like "915226" must NOT be passed to get_album_by_id
+    # (which queries a UUID column and would raise 22P02 in Postgres).
+    with patch("routes.songs.supabase_service.get_album_by_id") as mock_uuid_lookup, \
+         patch("routes.songs.supabase_service.find_album", return_value=MOCK_ALBUM):
+        response = client.get("/album/915226")
+    assert response.status_code == 200
+    mock_uuid_lookup.assert_not_called()
+
+
+def test_get_album_uuid_id_does_not_call_find_album():
+    # A UUID-shaped id should route to get_album_by_id only.
+    with patch("routes.songs.supabase_service.get_album_by_id", return_value=MOCK_ALBUM), \
+         patch("routes.songs.supabase_service.find_album") as mock_genius_cache:
+        response = client.get("/album/a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+    assert response.status_code == 200
+    mock_genius_cache.assert_not_called()

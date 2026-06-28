@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
@@ -18,13 +19,19 @@ router = APIRouter()
 DISCOURSE_TTL_DAYS = 7
 
 
-async def _resolve_album(album_id: str) -> Optional[dict]:
-    # First try a UUID lookup (our DB id)
-    by_uuid = supabase_service.get_album_by_id(album_id)
-    if by_uuid:
-        return by_uuid
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 
-    # Then try as a Genius integer id — fetch from Genius and cache
+
+async def _resolve_album(album_id: str) -> Optional[dict]:
+    # UUID format → our DB id
+    if _UUID_RE.match(album_id):
+        by_uuid = supabase_service.get_album_by_id(album_id)
+        if by_uuid:
+            return by_uuid
+        # Valid UUID but no row — treat as not found rather than fall through to int parse
+        return None
+
+    # Otherwise interpret as a Genius integer id — cache lookup then live fetch
     try:
         genius_id_int = int(album_id)
     except ValueError:
