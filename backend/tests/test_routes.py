@@ -66,6 +66,7 @@ MOCK_SONG_FROM_DB = {
     "lyrics": "Is this the real life?",
     "genius_id": 12345,
     "created_at": "2026-05-17T00:00:00",
+    "metadata": {"album_id": 999, "album_name": "A Night at the Opera", "album_art_url": None, "release_year": "1975", "producer": "Queen"},
     "interpretations": [{"content": MOCK_INTERPRETATION, "model_version": "claude-sonnet-4-6"}],
 }
 
@@ -86,6 +87,31 @@ def test_analyze_returns_cached_result_when_song_exists():
     assert data["id"] == "song-123"
     assert data["interpretation"]["emotional_tone"] == "hopeful"
     assert "community_commentary" in data
+
+
+def test_analyze_backfills_metadata_when_cached_song_missing_album_id():
+    legacy_song = {**MOCK_SONG_FROM_DB, "metadata": None}
+    fresh_meta = {"album_id": 777, "album_name": "Greatest Hits", "album_art_url": None, "release_year": "1981", "producer": "Queen"}
+    fresh_row = {"id": "disc-1", "song_id": "song-123", "excerpts": [], "scraped_at": _fresh_scraped_at()}
+    with patch("routes.songs.supabase_service.find_song", return_value=legacy_song), \
+         patch("routes.songs.supabase_service.find_discourse", return_value=fresh_row), \
+         patch("routes.songs.genius_service.get_song_details", new_callable=AsyncMock, return_value=fresh_meta) as mock_get_details, \
+         patch("routes.songs.supabase_service.update_song_metadata") as mock_update:
+        response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
+    assert response.status_code == 200
+    mock_get_details.assert_awaited_once_with(12345)
+    mock_update.assert_called_once_with("song-123", fresh_meta)
+    assert response.json()["metadata"]["album_id"] == 777
+
+
+def test_analyze_does_not_backfill_when_metadata_already_present():
+    fresh_row = {"id": "disc-1", "song_id": "song-123", "excerpts": [], "scraped_at": _fresh_scraped_at()}
+    with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB), \
+         patch("routes.songs.supabase_service.find_discourse", return_value=fresh_row), \
+         patch("routes.songs.genius_service.get_song_details", new_callable=AsyncMock) as mock_get_details:
+        response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
+    assert response.status_code == 200
+    mock_get_details.assert_not_awaited()
 
 
 def test_analyze_runs_full_flow_when_not_cached():

@@ -50,6 +50,14 @@ def store_song(title: str, artist: str, lyrics: str, genius_id: Optional[int] = 
     return result.data[0]
 
 
+def update_song_metadata(song_id: str, metadata: dict) -> None:
+    """Backfill metadata for an existing song row (e.g., songs analyzed pre-V2)."""
+    if not metadata:
+        return
+    client = get_client()
+    client.table("songs").update({"metadata": metadata}).eq("id", song_id).execute()
+
+
 def store_interpretation(song_id: str, content: dict, model_version: str) -> dict:
     client = get_client()
     result = (

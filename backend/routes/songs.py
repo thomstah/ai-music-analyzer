@@ -84,6 +84,18 @@ async def analyze(request: AnalyzeRequest):
 
     if cached:
         song_id = cached["id"]
+
+        # Backfill metadata for songs analyzed before V2 (missing album_id/album_name).
+        existing_meta = cached.get("metadata") or {}
+        if cached.get("genius_id") and not existing_meta.get("album_id"):
+            fresh_meta = await genius_service.get_song_details(cached["genius_id"])
+            if fresh_meta and fresh_meta.get("album_id"):
+                try:
+                    supabase_service.update_song_metadata(song_id, fresh_meta)
+                    cached["metadata"] = fresh_meta
+                except Exception as exc:
+                    logger.warning("Failed to backfill metadata for %s: %s", song_id, exc)
+
         discourse_row = supabase_service.find_discourse(song_id)
         if discourse_row and _is_discourse_fresh(discourse_row):
             excerpts = discourse_row["excerpts"]
