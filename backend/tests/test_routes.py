@@ -114,7 +114,8 @@ def test_analyze_does_not_backfill_when_metadata_already_present():
     mock_get_details.assert_not_awaited()
 
 
-def test_analyze_runs_full_flow_when_not_cached():
+def test_analyze_skips_claude_for_new_songs():
+    # /analyze now returns basic data only; Claude runs separately via /songs/{id}/deep-analyze
     stored_song = {
         "id": "new-song-id",
         "title": "Bohemian Rhapsody",
@@ -132,16 +133,64 @@ def test_analyze_runs_full_flow_when_not_cached():
                return_value="lyrics text"), \
          patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
                return_value=[]), \
-         patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock,
-               return_value=(MOCK_INTERPRETATION, "claude-sonnet-4-6")), \
+         patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock) as mock_claude, \
          patch("routes.songs.supabase_service.store_song", return_value=stored_song), \
-         patch("routes.songs.supabase_service.store_interpretation", return_value={}), \
          patch("routes.songs.supabase_service.store_discourse", return_value={}):
         response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "new-song-id"
+    assert data["interpretation"] is None  # not generated yet
+    mock_claude.assert_not_awaited()
+
+
+def test_deep_analyze_runs_claude_when_no_existing_interpretation():
+    stored_song = {
+        "id": "song-789",
+        "title": "Bohemian Rhapsody",
+        "artist": "Queen",
+        "lyrics": "Is this the real life?",
+        "genius_id": 12345,
+        "created_at": "2026-05-17T00:00:00",
+        "interpretations": [],
+        "metadata": None,
+    }
+    with patch("routes.songs.supabase_service.get_song_by_id", return_value=stored_song), \
+         patch("routes.songs.supabase_service.find_discourse", return_value=None), \
+         patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock,
+               return_value=(MOCK_INTERPRETATION, "claude-sonnet-4-6")) as mock_claude, \
+         patch("routes.songs.supabase_service.store_interpretation", return_value={}):
+        response = client.post("/songs/song-789/deep-analyze")
+    assert response.status_code == 200
+    data = response.json()
     assert data["interpretation"]["emotional_tone"] == "hopeful"
+    mock_claude.assert_awaited_once()
+
+
+def test_deep_analyze_returns_cached_interpretation_without_calling_claude():
+    stored_song = {
+        "id": "song-789",
+        "title": "Bohemian Rhapsody",
+        "artist": "Queen",
+        "lyrics": "Is this the real life?",
+        "genius_id": 12345,
+        "created_at": "2026-05-17T00:00:00",
+        "interpretations": [{"content": MOCK_INTERPRETATION, "model_version": "claude-sonnet-4-6"}],
+        "metadata": None,
+    }
+    with patch("routes.songs.supabase_service.get_song_by_id", return_value=stored_song), \
+         patch("routes.songs.supabase_service.find_discourse", return_value=None), \
+         patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock) as mock_claude:
+        response = client.post("/songs/song-789/deep-analyze")
+    assert response.status_code == 200
+    assert response.json()["interpretation"]["emotional_tone"] == "hopeful"
+    mock_claude.assert_not_awaited()
+
+
+def test_deep_analyze_returns_404_when_song_missing():
+    with patch("routes.songs.supabase_service.get_song_by_id", return_value=None):
+        response = client.post("/songs/nonexistent/deep-analyze")
+    assert response.status_code == 404
 
 
 def test_songs_search_returns_categorized_results():
@@ -217,10 +266,7 @@ def test_analyze_returns_community_commentary_on_new_song():
                return_value="lyrics text"), \
          patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
                return_value=MOCK_DISCOURSE_EXCERPTS), \
-         patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock,
-               return_value=(MOCK_INTERPRETATION, "claude-sonnet-4-6")), \
          patch("routes.songs.supabase_service.store_song", return_value=stored_song), \
-         patch("routes.songs.supabase_service.store_interpretation", return_value={}), \
          patch("routes.songs.supabase_service.store_discourse", return_value={}):
         response = client.post("/analyze", json={"title": "Passionfruit", "artist": "Drake"})
 

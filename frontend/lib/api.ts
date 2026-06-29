@@ -15,6 +15,15 @@ export async function analyzeSong(title: string, artist: string): Promise<Song> 
   return res.json();
 }
 
+export async function deepAnalyzeSong(songId: string): Promise<Song> {
+  const res = await fetch(`${BASE_URL}/songs/${songId}/deep-analyze`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(err.detail ?? `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function getSongById(id: string): Promise<Song | null> {
   const res = await fetch(`${BASE_URL}/song/${id}`, { cache: 'no-store' });
   if (!res.ok) return null;

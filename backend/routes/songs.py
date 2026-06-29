@@ -110,19 +110,17 @@ async def analyze(request: AnalyzeRequest):
                 logger.warning("Failed to persist discourse: %s", exc, exc_info=True)
         return {**_format_cached(cached), "community_commentary": excerpts}
 
+    # New song: fetch lyrics + community context, store, return WITHOUT calling Claude.
+    # Deep AI analysis is generated on demand via POST /songs/{id}/deep-analyze.
     genius_data = await genius_service.search_song(request.title, request.artist)
     song_metadata = await genius_service.get_song_details(genius_data["genius_id"])
     lyrics = await genius_service.fetch_lyrics(genius_data["url"])
     excerpts = await discourse_service.fetch_discourse(
         genius_data.get("genius_id"), request.title, request.artist
     )
-    interpretation, model_version = await anthropic_service.generate_interpretation(
-        request.title, request.artist, lyrics, discourse=excerpts
-    )
     song = supabase_service.store_song(
         request.title, request.artist, lyrics, genius_data.get("genius_id"), metadata=song_metadata
     )
-    supabase_service.store_interpretation(song["id"], interpretation, model_version)
     try:
         supabase_service.store_discourse(song["id"], excerpts)
     except Exception as exc:
@@ -135,7 +133,7 @@ async def analyze(request: AnalyzeRequest):
         "lyrics": song["lyrics"],
         "genius_id": song.get("genius_id"),
         "created_at": song.get("created_at"),
-        "interpretation": interpretation,
+        "interpretation": None,
         "community_commentary": excerpts,
         "metadata": song_metadata,
     }
@@ -147,6 +145,43 @@ async def get_song(song_id: str):
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
     return _format_cached(song)
+
+
+@router.post("/songs/{song_id}/deep-analyze")
+async def deep_analyze(song_id: str):
+    """Generate (or return existing) Claude interpretation for a stored song."""
+    song = supabase_service.get_song_by_id(song_id)
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+
+    # Return cached interpretation if it already exists
+    existing = (song.get("interpretations") or [{}])[0].get("content") if song.get("interpretations") else None
+    if existing:
+        formatted = _format_cached(song)
+        discourse_row = supabase_service.find_discourse(song_id)
+        excerpts = discourse_row["excerpts"] if discourse_row else []
+        return {**formatted, "community_commentary": excerpts}
+
+    # Need to generate — pull discourse for context
+    discourse_row = supabase_service.find_discourse(song_id)
+    excerpts = discourse_row["excerpts"] if discourse_row else []
+
+    interpretation, model_version = await anthropic_service.generate_interpretation(
+        song["title"], song["artist"], song["lyrics"], discourse=excerpts
+    )
+    supabase_service.store_interpretation(song_id, interpretation, model_version)
+
+    return {
+        "id": song["id"],
+        "title": song["title"],
+        "artist": song["artist"],
+        "lyrics": song["lyrics"],
+        "genius_id": song.get("genius_id"),
+        "created_at": song.get("created_at"),
+        "interpretation": interpretation,
+        "community_commentary": excerpts,
+        "metadata": song.get("metadata"),
+    }
 
 
 @router.get("/songs/trending")
