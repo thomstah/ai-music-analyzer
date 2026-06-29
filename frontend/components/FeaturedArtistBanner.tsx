@@ -1,77 +1,95 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { BillboardSong, Song } from '@/types/song';
 import { analyzeSong } from '@/lib/api';
 import Spinner from '@/components/Spinner';
 
-const AUTO_ROTATE_MS = 7000;
+const AUTO_ROTATE_MS = 4500;
 
 export default function FeaturedArtistBanner({ songs }: { songs: BillboardSong[] }) {
   const router = useRouter();
-  const [index, setIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
 
-  const featured = songs.slice(0, 5);
+  const featured = songs.slice(0, 10);
 
+  function getStepWidth(): number {
+    const track = trackRef.current;
+    if (!track || track.children.length < 2) return 0;
+    const first = track.children[0] as HTMLElement;
+    const second = track.children[1] as HTMLElement;
+    return second.offsetLeft - first.offsetLeft;
+  }
+
+  function scrollByStep(direction: -1 | 1) {
+    const track = trackRef.current;
+    if (!track) return;
+    const step = getStepWidth();
+    if (step === 0) return;
+    track.scrollBy({ left: direction * step, behavior: 'smooth' });
+  }
+
+  // Auto-advance, wrap around at the end
   useEffect(() => {
     if (paused || featured.length <= 1) return;
     const id = setInterval(() => {
-      setIndex(i => (i + 1) % featured.length);
+      const track = trackRef.current;
+      if (!track) return;
+      const step = getStepWidth();
+      if (step === 0) return;
+      const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+      if (atEnd) {
+        track.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        track.scrollBy({ left: step, behavior: 'smooth' });
+      }
     }, AUTO_ROTATE_MS);
     return () => clearInterval(id);
   }, [paused, featured.length]);
 
   if (featured.length === 0) return null;
 
-  const current = featured[index];
-
-  async function handleListen() {
-    if (loading) return;
-    setLoading(true);
+  async function handleListen(song: BillboardSong) {
+    const key = `${song.title}-${song.artist}`;
+    if (loadingKey) return;
+    setLoadingKey(key);
     setError(null);
     try {
-      const song: Song = await analyzeSong(current.title, current.artist);
-      sessionStorage.setItem(`song-${song.id}`, JSON.stringify(song));
-      router.push(`/song/${song.id}`);
+      const result: Song = await analyzeSong(song.title, song.artist);
+      sessionStorage.setItem(`song-${result.id}`, JSON.stringify(result));
+      router.push(`/song/${result.id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
-      setLoading(false);
+      setLoadingKey(null);
     }
-  }
-
-  function goPrev() {
-    setIndex(i => (i - 1 + featured.length) % featured.length);
-  }
-  function goNext() {
-    setIndex(i => (i + 1) % featured.length);
   }
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl mb-6 bg-gradient-to-br from-purple-900 via-neutral-900 to-neutral-950 p-6"
+      className="relative mb-6"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-bold text-purple-300 uppercase tracking-widest">
           Featured Today
         </p>
         {featured.length > 1 && (
           <div className="flex gap-1">
             <button
-              onClick={goPrev}
-              aria-label="Previous featured song"
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-800/60 hover:bg-neutral-700 text-neutral-300 transition-colors"
+              onClick={() => scrollByStep(-1)}
+              aria-label="Previous featured"
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors text-lg leading-none"
             >
               ‹
             </button>
             <button
-              onClick={goNext}
-              aria-label="Next featured song"
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-800/60 hover:bg-neutral-700 text-neutral-300 transition-colors"
+              onClick={() => scrollByStep(1)}
+              aria-label="Next featured"
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors text-lg leading-none"
             >
               ›
             </button>
@@ -79,40 +97,43 @@ export default function FeaturedArtistBanner({ songs }: { songs: BillboardSong[]
         )}
       </div>
 
-      <h2 className="text-3xl font-black text-white mb-1 leading-tight">{current.artist}</h2>
-      <p className="text-neutral-300 mb-3">
-        <span className="text-neutral-500">#{current.rank} with</span> {current.title}
-      </p>
-
-      {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
-
-      <div className="flex items-center gap-4 flex-wrap">
-        <button
-          onClick={handleListen}
-          disabled={loading}
-          className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white text-sm font-medium px-4 py-2 rounded-full transition-colors"
-        >
-          {loading && <Spinner size="sm" />}
-          {loading ? 'Analyzing…' : 'Read the analysis →'}
-        </button>
-
-        {featured.length > 1 && (
-          <div className="flex gap-1.5" role="tablist" aria-label="Featured song selector">
-            {featured.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setIndex(i)}
-                aria-label={`Show featured song ${i + 1}`}
-                aria-selected={i === index}
-                role="tab"
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  i === index ? 'bg-purple-400' : 'bg-neutral-700 hover:bg-neutral-600'
-                }`}
-              />
-            ))}
-          </div>
-        )}
+      <div
+        ref={trackRef}
+        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar"
+      >
+        {featured.map(song => {
+          const key = `${song.title}-${song.artist}`;
+          const isLoading = loadingKey === key;
+          return (
+            <div
+              key={key}
+              className="snap-start shrink-0 basis-full sm:basis-1/2 lg:basis-1/3"
+            >
+              <div className="bg-gradient-to-br from-purple-900 via-neutral-900 to-neutral-950 rounded-2xl p-5 h-full flex flex-col justify-between min-h-[160px]">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-purple-300 uppercase tracking-widest mb-2">
+                    #{song.rank} on Billboard
+                  </p>
+                  <h3 className="text-xl font-black text-white leading-tight mb-1 truncate">
+                    {song.title}
+                  </h3>
+                  <p className="text-neutral-400 text-sm truncate">{song.artist}</p>
+                </div>
+                <button
+                  onClick={() => handleListen(song)}
+                  disabled={!!loadingKey}
+                  className="mt-3 inline-flex items-center gap-2 text-purple-300 hover:text-purple-200 text-sm font-medium transition-colors disabled:opacity-60 self-start"
+                >
+                  {isLoading && <Spinner size="sm" />}
+                  {isLoading ? 'Analyzing…' : 'Read the analysis →'}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
     </div>
   );
 }
