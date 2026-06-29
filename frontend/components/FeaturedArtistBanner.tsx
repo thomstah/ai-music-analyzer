@@ -111,7 +111,7 @@ export default function FeaturedArtistBanner({ songs }: { songs: BillboardSong[]
           return (
             <div
               key={key}
-              className="snap-start shrink-0 basis-full sm:basis-1/2 lg:basis-1/3"
+              className="snap-start shrink-0 min-w-0 basis-full sm:basis-[calc((100%-0.75rem)/2)] lg:basis-[calc((100%-1.5rem)/3)]"
             >
               <div className="bg-gradient-to-br from-purple-900 via-neutral-900 to-neutral-950 rounded-2xl p-4 h-full flex gap-3 items-center">
                 {song.cover_url ? (
