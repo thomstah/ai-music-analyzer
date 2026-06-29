@@ -25,7 +25,9 @@ export default function ArtistTopSongs({
     setLoadingId(s.genius_id);
     setError(null);
     try {
-      const song: Song = await analyzeSong(s.title, artistName);
+      // Use the song's actual primary artist (e.g. "Rihanna" for Work feat. Drake),
+      // not the page artist. Otherwise Genius returns a same-name match (Drake White, etc.).
+      const song: Song = await analyzeSong(s.title, s.artist_name || artistName);
       sessionStorage.setItem(`song-${song.id}`, JSON.stringify(song));
       router.push(`/song/${song.id}`);
     } catch (err: unknown) {
