@@ -135,8 +135,13 @@ async def test_get_song_details_returns_metadata():
     mock_response.json.return_value = {
         "response": {
             "song": {
-                "song_art_image_url": "https://images.genius.com/art.jpg",
-                "album": {"id": 999, "name": "Certified Lover Boy", "release_date_for_display": "September 3, 2021"},
+                "song_art_image_url": "https://images.genius.com/single-art.jpg",
+                "album": {
+                    "id": 999,
+                    "name": "Certified Lover Boy",
+                    "release_date_for_display": "September 3, 2021",
+                    "cover_art_url": "https://images.genius.com/album-cover.jpg",
+                },
                 "producer_artists": [{"name": "Noah '40' Shebib"}],
                 "primary_artist": {"id": 555, "name": "Drake"},
             }
@@ -150,10 +155,33 @@ async def test_get_song_details_returns_metadata():
 
     assert result["artist_id"] == 555
     assert result["album_id"] == 999
-    assert result["album_art_url"] == "https://images.genius.com/art.jpg"
+    # Prefer the album cover over the song's individual single art
+    assert result["album_art_url"] == "https://images.genius.com/album-cover.jpg"
     assert result["album_name"] == "Certified Lover Boy"
     assert result["release_year"] == "2021"
     assert result["producer"] == "Noah '40' Shebib"
+
+
+@pytest.mark.asyncio
+async def test_get_song_details_falls_back_to_song_art_when_album_has_no_cover():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "response": {
+            "song": {
+                "song_art_image_url": "https://images.genius.com/single-art.jpg",
+                "album": None,  # standalone single
+                "producer_artists": [],
+                "primary_artist": {"id": 555, "name": "Artist"},
+            }
+        }
+    }
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        result = await get_song_details(12345)
+
+    assert result["album_art_url"] == "https://images.genius.com/single-art.jpg"
 
 
 @pytest.mark.asyncio

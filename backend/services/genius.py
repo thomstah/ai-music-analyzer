@@ -160,10 +160,14 @@ async def get_song_details(genius_id: int) -> dict:
     producers = song.get("producer_artists", [])
     producer = producers[0]["name"] if producers else None
 
+    # Prefer the parent album's cover so the song page matches the album page.
+    # Fall back to the song's own promotional art (e.g. for standalone singles).
+    album_art = album.get("cover_art_url") or song.get("song_art_image_url")
+
     return {
         "artist_id": (song.get("primary_artist") or {}).get("id"),
         "album_id": album.get("id"),
-        "album_art_url": song.get("song_art_image_url"),
+        "album_art_url": album_art,
         "album_name": album.get("name"),
         "release_year": release_year,
         "producer": producer,
