@@ -6,6 +6,14 @@ The goal: introduce a free tier and a premium subscription so that AI inference 
 
 ---
 
+## Product framing constraint (post-Musixmatch migration)
+
+Musixmatch's licensing model forbids caching lyrics text. Every display = one API call against a 500/day cap on the Basic plan. This forces the app away from a "lyrics-first" UX and toward an **"AI music criticism with key-lyric excerpts"** framing. Default view = analysis; full lyrics behind a click. See [Musixmatch migration plan](./musixmatch-migration-plan.md) for the detailed implications.
+
+This is actually a *stronger* product story for differentiation, monetization, and legal posture — the AI analysis is the thing people pay for, not lyrics they can get elsewhere. Worth keeping in mind as the free vs premium tier breakdown evolves below.
+
+---
+
 ## Tier breakdown
 
 ### Free tier (no AI inference cost)
@@ -140,18 +148,32 @@ The current deep-analyze split (basic on `/analyze`, AI on `/songs/{id}/deep-ana
 
 Rough Claude API cost per analysis: $0.01–0.05 (Sonnet, ~2-3k tokens).
 
-| Scenario | Analyses/mo | Claude cost/mo | Subscribers needed @ $5 |
-|---|---|---|---|
-| 1k users × 10 analyses | 10k | $100–$500 | 100 |
-| 10k users × 5 analyses | 50k | $500–$2500 | 500 |
-| 100k users × 5 analyses | 500k | $5k–$25k | 5000 |
+**Fixed monthly costs once public** (post-Musixmatch migration):
 
-Conversion rates for freemium SaaS typically run 2–5%. At 2% conversion, you need 5,000 free users to get 100 paying subscribers ($500/mo). Math is workable but requires real distribution.
+| Cost | Amount/mo |
+|---|---|
+| Musixmatch Basic API plan | $49 (mandatory once public — see [migration plan](./musixmatch-migration-plan.md)) |
+| Hosting (Supabase free tier, Railway backend) | ~$5 |
+| Domain | $1 (amortized) |
+| **Subtotal fixed** | **~$55** before any Claude usage |
+
+**Variable cost** (Claude):
+
+| Scenario | Analyses/mo | Claude cost/mo | Total cost/mo | Subscribers needed @ $5 to break even |
+|---|---|---|---|---|
+| 1k users × 10 analyses | 10k | $100–$500 | $155–$555 | 31–111 |
+| 10k users × 5 analyses | 50k | $500–$2500 | $555–$2555 | 111–511 |
+| 100k users × 5 analyses | 500k | $5k–$25k | $5055–$25k | 1011–5011 |
+
+Conversion rates for freemium SaaS typically run 2–5%. At 2% conversion, you need ~5,500 free users to get 111 paying subscribers ($555/mo) to cover Musixmatch + light Claude usage. Math is workable but requires real distribution.
+
+**Pre-public phase:** Musixmatch isn't needed yet — current Genius-scraping setup is dev-only and costs $0/mo for lyrics. Migrate the day before going public.
 
 ---
 
 ## Related files
 
+- [Musixmatch migration plan](./musixmatch-migration-plan.md) — Architectural shift required by no-cache + 500-call/day limits
 - [Legal templates](./legal-templates.md) — Terms of Service / Privacy Policy / DMCA scaffolds
 - `backend/services/musixmatch.py` — wired up but not used; swap before public/monetized launch
 - `backend/routes/songs.py` — `/songs/{id}/deep-analyze` is the paywall seam
