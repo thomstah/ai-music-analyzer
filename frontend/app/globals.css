@@ -2,13 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Hide scrollbars on horizontal carousels while preserving scroll behavior */
 @layer utilities {
+  /* Hide scrollbars on horizontal carousels while preserving scroll behavior */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* Sliding marquee for long titles. The text is rendered twice with padding
+     between, so translateX(-50%) leaves the second copy in the visible spot for
+     a seamless loop. */
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .animate-marquee {
+    animation: marquee 12s linear infinite;
+  }
+
+  /* Carousel progress bar fills over the auto-cycle duration */
+  @keyframes carousel-progress {
+    from { width: 0%; }
+    to { width: 100%; }
+  }
+  .animate-progress {
+    animation: carousel-progress 10s linear forwards;
   }
 }

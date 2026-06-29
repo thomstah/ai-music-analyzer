@@ -219,7 +219,7 @@ async def trending(limit: int = Query(default=10, ge=1, le=50)):
 
 @router.get("/songs/billboard")
 async def billboard_chart(limit: int = Query(default=10, ge=1, le=100)):
-    return await asyncio.to_thread(billboard_service.get_hot_100, limit)
+    return await billboard_service.get_hot_100(limit)
 
 
 @router.get("/news")

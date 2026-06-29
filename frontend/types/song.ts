@@ -90,6 +90,7 @@ export interface BillboardSong {
   rank: number;
   title: string;
   artist: string;
+  cover_url?: string | null;
 }
 
 export interface Article {

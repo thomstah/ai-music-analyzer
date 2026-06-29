@@ -26,6 +26,25 @@ async def search_artist_by_name(name: str) -> Optional[dict]:
     return hits[0]
 
 
+async def search_track_cover(title: str, artist: str) -> Optional[str]:
+    """Search Deezer for a track, return its album cover URL (medium size) or None."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{DEEZER_API_BASE}/search/track",
+                params={"q": f"{title} {artist}", "limit": 1},
+            )
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        return None
+    hits = data.get("data") or []
+    if not hits:
+        return None
+    album = hits[0].get("album") or {}
+    return album.get("cover_big") or album.get("cover_medium")
+
+
 async def get_artist_albums(deezer_artist_id: int, limit: int = 6) -> list[dict]:
     """Fetch the artist's full-album discography from Deezer, excluding singles/EPs.
     Returned shape: [{album_id_deezer, title, cover_url, release_year, fans}]"""

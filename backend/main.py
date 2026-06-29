@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 async def _warm_billboard_cache():
     """Pre-warm the Billboard Hot 100 cache so the first home-page load is fast."""
     try:
-        await asyncio.to_thread(billboard_service.get_hot_100, 10)
+        await billboard_service.get_hot_100(10)
         logger.info("Billboard cache pre-warmed")
     except Exception as exc:
         logger.warning("Failed to pre-warm Billboard cache: %s", exc)
