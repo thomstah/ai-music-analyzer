@@ -12,7 +12,9 @@ import services.anthropic as anthropic_service
 import services.discourse as discourse_service
 import services.billboard as billboard_service
 import services.news as news_service
-import services.musixmatch as musixmatch_service
+# musixmatch_service intentionally not imported here — wired up in services/musixmatch.py
+# but not used in the analyze flow. Swap genius_service.fetch_lyrics → musixmatch
+# before public release. See docs/notes/business-model-brainstorm.md.
 
 logger = logging.getLogger(__name__)
 
@@ -113,22 +115,11 @@ async def analyze(request: AnalyzeRequest):
 
     # New song: fetch lyrics + community context, store, return WITHOUT calling Claude.
     # Deep AI analysis is generated on demand via POST /songs/{id}/deep-analyze.
-    # Lyrics come from Musixmatch (licensed) — Genius is used only for metadata/community.
+    # NOTE: lyrics currently scraped from Genius (dev only). Swap to Musixmatch
+    # (services/musixmatch.py is wired up) before any public/monetized launch.
     genius_data = await genius_service.search_song(request.title, request.artist)
     song_metadata = await genius_service.get_song_details(genius_data["genius_id"])
-
-    musixmatch_data = await musixmatch_service.fetch_lyrics_by_name(request.title, request.artist)
-    if not musixmatch_data:
-        raise HTTPException(status_code=404, detail="Lyrics not available for this song")
-    lyrics = musixmatch_data["lyrics"]
-    if song_metadata is None:
-        song_metadata = {}
-    song_metadata = {
-        **song_metadata,
-        "musixmatch_track_id": musixmatch_data.get("musixmatch_track_id"),
-        "musixmatch_url": musixmatch_data.get("track_share_url"),
-    }
-
+    lyrics = await genius_service.fetch_lyrics(genius_data["url"])
     excerpts = await discourse_service.fetch_discourse(
         genius_data.get("genius_id"), request.title, request.artist
     )

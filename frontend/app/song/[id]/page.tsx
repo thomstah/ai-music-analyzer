@@ -87,20 +87,6 @@ export default function SongPage() {
             onLineSelect={handleLineSelect}
             selectedLyric={selectedLyric}
           />
-          {song.metadata?.musixmatch_url && (
-            <p className="text-neutral-600 text-xs mt-6 italic">
-              Lyrics excerpt provided by{' '}
-              <a
-                href={song.metadata.musixmatch_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-neutral-500 hover:text-purple-400 underline"
-              >
-                Musixmatch
-              </a>
-              . Lyriq&apos;s interpretation is AI-generated commentary.
-            </p>
-          )}
         </div>
         {/* Analysis panel — sticky on desktop */}
         <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto bg-neutral-900 rounded-xl p-5">

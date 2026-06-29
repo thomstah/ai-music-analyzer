@@ -129,8 +129,8 @@ def test_analyze_skips_claude_for_new_songs():
                return_value={"url": "https://genius.com/song", "genius_id": 12345}), \
          patch("routes.songs.genius_service.get_song_details", new_callable=AsyncMock,
                return_value={"album_art_url": None, "album_name": None, "release_year": None, "producer": None}), \
-         patch("routes.songs.musixmatch_service.fetch_lyrics_by_name", new_callable=AsyncMock,
-               return_value={"lyrics": "lyrics text", "musixmatch_track_id": 99, "track_share_url": "https://mxm/x", "pixel_tracking_url": None}), \
+         patch("routes.songs.genius_service.fetch_lyrics", new_callable=AsyncMock,
+               return_value="lyrics text"), \
          patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
                return_value=[]), \
          patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock) as mock_claude, \
@@ -142,19 +142,6 @@ def test_analyze_skips_claude_for_new_songs():
     assert data["id"] == "new-song-id"
     assert data["interpretation"] is None  # not generated yet
     mock_claude.assert_not_awaited()
-
-
-def test_analyze_returns_404_when_musixmatch_has_no_lyrics():
-    with patch("routes.songs.supabase_service.find_song", return_value=None), \
-         patch("routes.songs.genius_service.search_song", new_callable=AsyncMock,
-               return_value={"url": "https://genius.com/song", "genius_id": 12345}), \
-         patch("routes.songs.genius_service.get_song_details", new_callable=AsyncMock,
-               return_value={"album_art_url": None}), \
-         patch("routes.songs.musixmatch_service.fetch_lyrics_by_name", new_callable=AsyncMock,
-               return_value=None):
-        response = client.post("/analyze", json={"title": "Obscure Song", "artist": "Unknown"})
-    assert response.status_code == 404
-    assert "Lyrics not available" in response.json()["detail"]
 
 
 def test_deep_analyze_runs_claude_when_no_existing_interpretation():
@@ -275,8 +262,8 @@ def test_analyze_returns_community_commentary_on_new_song():
                return_value={"url": "https://genius.com/song", "genius_id": 12345}), \
          patch("routes.songs.genius_service.get_song_details", new_callable=AsyncMock,
                return_value={"album_art_url": None, "album_name": None, "release_year": None, "producer": None}), \
-         patch("routes.songs.musixmatch_service.fetch_lyrics_by_name", new_callable=AsyncMock,
-               return_value={"lyrics": "lyrics text", "musixmatch_track_id": 99, "track_share_url": "https://mxm/x", "pixel_tracking_url": None}), \
+         patch("routes.songs.genius_service.fetch_lyrics", new_callable=AsyncMock,
+               return_value="lyrics text"), \
          patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
                return_value=MOCK_DISCOURSE_EXCERPTS), \
          patch("routes.songs.supabase_service.store_song", return_value=stored_song), \
