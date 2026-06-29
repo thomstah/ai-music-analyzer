@@ -200,6 +200,8 @@ def test_songs_search_returns_categorized_results():
         "artists": [{"name": "Queen", "artist_id": 42, "thumbnail": None}],
     }
     with patch("routes.songs.genius_service.search_songs", return_value=categorized), \
+         patch("routes.songs.supabase_service.find_artist_by_genius_id", return_value=None), \
+         patch("routes.songs.deezer_service.search_artist_by_name", new_callable=AsyncMock, return_value=None), \
          patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
         response = client.get("/songs/search?q=queen")
     assert response.status_code == 200
@@ -208,6 +210,40 @@ def test_songs_search_returns_categorized_results():
     assert data["artists"][0]["name"] == "Queen"
     assert data["lyrics"] == []
     assert data["albums"] == []
+
+
+def test_songs_search_uses_cached_artist_photo_when_available():
+    categorized = {
+        "songs": [],
+        "lyrics": [],
+        "artists": [{"name": "Drake", "artist_id": 130, "thumbnail": "https://genius.com/old.jpg"}],
+    }
+    cached_artist = {"id": "uuid-1", "genius_id": 130, "name": "Drake", "image_url": "https://cdn.deezer.com/drake-xl.jpg"}
+    with patch("routes.songs.genius_service.search_songs", return_value=categorized), \
+         patch("routes.songs.supabase_service.find_artist_by_genius_id", return_value=cached_artist), \
+         patch("routes.songs.deezer_service.search_artist_by_name", new_callable=AsyncMock) as mock_deezer, \
+         patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
+        response = client.get("/songs/search?q=drake")
+    assert response.status_code == 200
+    assert response.json()["artists"][0]["thumbnail"] == "https://cdn.deezer.com/drake-xl.jpg"
+    # When cache hits, Deezer is NOT called
+    mock_deezer.assert_not_awaited()
+
+
+def test_songs_search_falls_back_to_live_deezer_when_artist_not_cached():
+    categorized = {
+        "songs": [],
+        "lyrics": [],
+        "artists": [{"name": "Drake", "artist_id": 130, "thumbnail": "https://genius.com/old.jpg"}],
+    }
+    with patch("routes.songs.genius_service.search_songs", return_value=categorized), \
+         patch("routes.songs.supabase_service.find_artist_by_genius_id", return_value=None), \
+         patch("routes.songs.deezer_service.search_artist_by_name", new_callable=AsyncMock,
+               return_value={"id": 246791, "picture_xl": "https://cdn.deezer.com/drake-xl.jpg"}), \
+         patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
+        response = client.get("/songs/search?q=drake")
+    assert response.status_code == 200
+    assert response.json()["artists"][0]["thumbnail"] == "https://cdn.deezer.com/drake-xl.jpg"
 
 
 def test_songs_search_returns_empty_categories_when_no_results():

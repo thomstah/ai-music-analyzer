@@ -75,9 +75,32 @@ def _is_discourse_fresh(row: dict) -> bool:
     return datetime.now(timezone.utc) - scraped_at < timedelta(days=DISCOURSE_TTL_DAYS)
 
 
+async def _enhance_artist_photo(artist_hit: dict) -> dict:
+    """Replace Genius search thumbnail with the higher-quality cached/Deezer photo
+    so the search row matches what the artist page shows."""
+    artist_id = artist_hit.get("artist_id")
+    if artist_id:
+        cached = supabase_service.find_artist_by_genius_id(artist_id)
+        if cached and cached.get("image_url"):
+            return {**artist_hit, "thumbnail": cached["image_url"]}
+
+    name = artist_hit.get("name", "")
+    if name:
+        deezer_match = await deezer_service.search_artist_by_name(name)
+        if deezer_match:
+            photo = deezer_match.get("picture_xl") or deezer_match.get("picture_big")
+            if photo:
+                return {**artist_hit, "thumbnail": photo}
+    return artist_hit
+
+
 @router.get("/songs/search")
 async def search_suggestions(q: str = Query(..., min_length=1, max_length=200)):
     genius_results = await genius_service.search_songs(q)
+    enhanced_artists = await asyncio.gather(*(
+        _enhance_artist_photo(a) for a in genius_results.get("artists", [])
+    ))
+    genius_results["artists"] = list(enhanced_artists)
     albums = supabase_service.search_cached_albums(q, limit=5)
     return {**genius_results, "albums": albums}
 
