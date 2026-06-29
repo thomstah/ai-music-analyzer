@@ -27,32 +27,32 @@ export default async function HomePage({
 
   const [billboard, articles, themes] = await Promise.all([
     getBillboard(10),
-    getMusicNews(8),
+    getMusicNews(4),
     getTrendingThemes(8),
   ]);
   return (
-    <main className="max-w-6xl mx-auto px-6 py-12">
-      <h1 className="text-3xl font-black text-white mb-2">What does it mean?</h1>
-      <p className="text-neutral-400 mb-10">
+    <main className="max-w-6xl mx-auto px-6 py-6">
+      <h1 className="text-2xl font-black text-white mb-1">What does it mean?</h1>
+      <p className="text-neutral-400 text-sm mb-4">
         Search a song to get Lyriq&apos;s interpretation of the lyrics.
       </p>
-      <FeaturedArtistBanner feature={billboard[0] ?? null} />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <FeaturedArtistBanner songs={billboard} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2">
-          <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
+          <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">
             Billboard Hot 100
           </h2>
           <BillboardChart songs={billboard} />
         </section>
-        <aside className="space-y-10">
+        <aside className="space-y-6">
           <div>
-            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
+            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">
               Music News
             </h2>
             <NewsPanel articles={articles} />
           </div>
           <div>
-            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
+            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">
               Trending Themes
             </h2>
             <TrendingThemes themes={themes} />
