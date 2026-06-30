@@ -1,14 +1,31 @@
-# Analysis-First Refactor
+# Analysis-First Refactor (Cost-Capped Edition)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restructure song page to be analysis-first with lyrics on-demand. Mirror Musixmatch architecture so Genius is a swappable adapter.
+**Goal:** Reframe the song page as analysis-first while staying on Genius lyrics indefinitely. Add monthly Claude budget cap and tip jar so launch is sustainable.
 
-**Architecture:** Lyrics are ephemeral — fetched per-display via `GET /songs/{id}/lyrics`, never cached in the DB by new flows. Claude prompt updated so breakdowns include verbatim quoted lyrics (self-contained). UI is single-column long-read with slide-in lyrics drawer.
+**Architecture:** Two-column song page — analysis main (left, ~60%), lyrics column (right, ~40%). Lyrics stay cached in `songs.lyrics` (Genius is free). Claude prompt updated for self-contained breakdowns. Model swapped to Haiku 4.5. One-off re-analysis pass updates all stored songs.
+
+**Cost-cap context:** Implements the [cost-capped launch plan](../../notes/cost-capped-launch-plan.md). No paywall. No auth. Budget enforced via in-memory monthly tracker on the `/songs/{id}/deep-analyze` endpoint.
 
 **Tech Stack:** Same as today. No new dependencies.
 
-**Cost-cap context:** This refactor is for the [cost-capped launch plan](../../notes/cost-capped-launch-plan.md), not a paywall. The deep-analyze endpoint will check a monthly Claude budget (set by the operator), not a per-user subscription tier. No auth, no Stripe subscriptions involved.
+---
+
+## Decisions locked in
+
+| Decision | Choice |
+|---|---|
+| Layout | Two-column: analysis main (left), lyrics column (right). Stacks on mobile. |
+| Lyrics caching | Keep `songs.lyrics` column. Cache from Genius as today. |
+| Breakdown style | Self-contained — each card has the quoted lyric + commentary |
+| Click-to-explain | **Removed** (breakdown cards are self-sufficient now) |
+| Claude model | Switch Sonnet 4.6 → Haiku 4.5 |
+| Re-analysis | Yes — re-analyze every stored song under new prompt + Haiku |
+| Budget cap | $20/mo Claude budget, in-memory tracker |
+| Out-of-budget UX | Friendly lockout + tip-jar nudge |
+| Tip jar | Footer link (Stripe Payment Link OR Ko-fi, owner picks later) |
+| Seed corpus | Defer to a separate pass after refactor lands |
 
 ---
 
@@ -17,128 +34,192 @@
 ### Backend
 | File | Change |
 |---|---|
-| `backend/services/anthropic.py` | Update SYSTEM_PROMPT to require verbatim lyric quotes in breakdowns |
-| `backend/routes/songs.py` | `/analyze` stops fetching lyrics; new `GET /songs/{id}/lyrics`; `/songs/{id}/deep-analyze` fetches + discards |
-| `backend/services/genius.py` | Add `fetch_lyrics_by_title_artist(title, artist)` convenience that combines `search_song` + `fetch_lyrics` |
-| `backend/routes/songs.py` | Add `POST /admin/reanalyze-all` for one-off backfill |
-| `backend/tests/test_routes.py` | Update analyze test, add lyrics endpoint test, add reanalyze test |
+| `backend/services/anthropic.py` | Switch `MODEL` to Haiku 4.5. Update `SYSTEM_PROMPT` to require verbatim quoted lyrics in each breakdown. Wire in budget tracker. |
+| `backend/services/claude_budget.py` | NEW — in-memory monthly spend tracker with `record_usage`, `within_budget`, `remaining_usd` |
+| `backend/routes/songs.py` | `deep-analyze` checks budget before calling Claude, returns 429 with friendly message when over cap. Add `POST /admin/reanalyze-all` for backfill. |
+| `backend/tests/` | Update anthropic prompt test, add budget tracker tests, add reanalyze test |
 
 ### Frontend
 | File | Change |
 |---|---|
-| `frontend/types/song.ts` | `Song.lyrics` becomes optional |
-| `frontend/lib/api.ts` | Add `getSongLyrics(id)` |
-| `frontend/components/LyricsDrawer.tsx` | NEW — slide-in from right, fetches on open |
-| `frontend/components/BreakdownCard.tsx` | Make standalone (large quoted lyric + commentary) |
-| `frontend/components/AnalysisPanel.tsx` | Convert to long-read; remove sticky sidebar styling |
-| `frontend/app/song/[id]/page.tsx` | Single-column layout, remove LyricsPanel, add LyricsDrawer button |
-| `frontend/components/LyricsPanel.tsx` | Keep but used only inside drawer; remove click-to-explain props |
+| `frontend/app/song/[id]/page.tsx` | Flip column priority: analysis on left (~60%), lyrics on right (~40%). |
+| `frontend/components/AnalysisPanel.tsx` | Becomes the primary content area (no longer sticky sidebar). Breakdown cards prominent. |
+| `frontend/components/BreakdownCard.tsx` | Each card shows quoted lyric block prominently (multi-line, bordered) + commentary below |
+| `frontend/components/LyricsPanel.tsx` | Becomes the right column. Removes click-to-explain props. Read-only display. |
+| `frontend/components/Footer.tsx` | NEW — site-wide footer with tip-jar link, AI disclaimer, attribution |
+| `frontend/app/layout.tsx` | Mount Footer |
 
 ---
 
-## Task 1: Update Claude prompt
+## Task 1: Backend — model, prompt, budget
 
-- [ ] **Step 1: Modify `SYSTEM_PROMPT` in `backend/services/anthropic.py`**
+- [ ] **Step 1: Switch Claude model in `backend/services/anthropic.py`**
 
-Add explicit instruction: each `key_lyric_breakdowns` entry must include 5-10 verbatim lyric lines as the `lyric` field, separated by newlines. The `breakdown` field is the commentary on those lines.
+```python
+MODEL = "claude-haiku-4-5-20251001"
+MAX_TOKENS = 2500
+```
 
-- [ ] **Step 2: Verify schema still accepts multi-line `lyric` strings**
+- [ ] **Step 2: Update `SYSTEM_PROMPT` to require verbatim quotes**
 
-`LyricBreakdown.lyric: str` already accepts any string. No schema change.
+Add explicit instruction: each `key_lyric_breakdowns.lyric` field must contain 5-10 verbatim consecutive lyric lines (newline-separated). The `breakdown` is commentary on those specific lines. Never reference "the bridge" or "this line" — always include the actual quoted lines.
 
-- [ ] **Step 3: Run tests**
+- [ ] **Step 3: Create `backend/services/claude_budget.py`**
+
+```python
+import time
+from datetime import datetime, timezone
+
+MONTHLY_BUDGET_USD = 20.0
+HAIKU_INPUT_PER_1M = 1.0
+HAIKU_OUTPUT_PER_1M = 5.0
+
+_state: dict = {"month": "", "spend": 0.0}
+
+
+def _reset_if_new_month():
+    current = datetime.now(timezone.utc).strftime("%Y-%m")
+    if _state["month"] != current:
+        _state["month"] = current
+        _state["spend"] = 0.0
+
+
+def record_usage(input_tokens: int, output_tokens: int) -> None:
+    _reset_if_new_month()
+    cost = (input_tokens / 1_000_000) * HAIKU_INPUT_PER_1M
+    cost += (output_tokens / 1_000_000) * HAIKU_OUTPUT_PER_1M
+    _state["spend"] += cost
+
+
+def within_budget() -> bool:
+    _reset_if_new_month()
+    return _state["spend"] < MONTHLY_BUDGET_USD
+
+
+def remaining_usd() -> float:
+    _reset_if_new_month()
+    return max(0.0, MONTHLY_BUDGET_USD - _state["spend"])
+```
+
+- [ ] **Step 4: Wire budget check into `/songs/{id}/deep-analyze`**
+
+Before calling Claude, check budget. If exceeded, raise:
+```python
+raise HTTPException(
+    status_code=429,
+    detail="Monthly AI budget reached. New analyses resume on the 1st. "
+           "Browse already-analyzed songs or support hosting via the tip jar.",
+)
+```
+
+After Claude returns, record usage:
+```python
+claude_budget.record_usage(response.usage.input_tokens, response.usage.output_tokens)
+```
+
+- [ ] **Step 5: Add `POST /admin/reanalyze-all` for backfill**
+
+Iterates over all songs with stored interpretations. For each, re-runs analysis under the new prompt + Haiku model and updates the interpretation. Used once after deploy.
+
+- [ ] **Step 6: Backend tests + commit**
 
 ```bash
 cd backend && pytest tests/ -q
+git add backend/ && git commit -m "feat: Haiku model + verbatim-quote breakdowns + monthly Claude budget cap"
 ```
 
 ---
 
-## Task 2: Backend route refactor
+## Task 2: Frontend — layout flip + standalone cards
 
-- [ ] **Step 4: Modify `/analyze` in `backend/routes/songs.py`**
+- [ ] **Step 7: Restructure `app/song/[id]/page.tsx`**
 
-Remove the `genius_service.fetch_lyrics(...)` call. Store song with empty lyrics string. Return without lyrics.
+Today's layout: `flex-col-reverse lg:flex-row` with lyrics left (flex-1), analysis right (w-80 sticky).
 
-- [ ] **Step 5: Add `GET /songs/{id}/lyrics` endpoint**
+New layout: Analysis is the primary content (lg:flex-1, takes most space), lyrics are the secondary column (lg:w-96 sticky). Mobile: analysis first, lyrics below.
 
-```python
-@router.get("/songs/{song_id}/lyrics")
-async def get_song_lyrics(song_id: str):
-    song = supabase_service.get_song_by_id(song_id)
-    if not song or not song.get("genius_id"):
-        raise HTTPException(status_code=404, detail="Song not found")
-    # Re-search Genius (cheap; cached internally) to get the URL
-    genius_data = await genius_service.search_song(song["title"], song["artist"])
-    lyrics = await genius_service.fetch_lyrics(genius_data["url"])
-    return {"lyrics": lyrics}
-```
+- [ ] **Step 8: Update `AnalysisPanel.tsx` for primary-content role**
 
-- [ ] **Step 6: Modify `/songs/{id}/deep-analyze`**
+Remove sticky sidebar styling. Make it a long-form reading experience: TL;DR, themes/tone, meaning, then standalone breakdown cards stacked vertically, then community.
 
-Fetch lyrics live from Genius (don't read from `songs.lyrics`). Pass to Claude. Don't write lyrics back.
+- [ ] **Step 9: Rewrite `BreakdownCard.tsx`**
 
-- [ ] **Step 7: Add `POST /admin/reanalyze-all`**
+Each card prominently displays the quoted lyric as a multi-line block (left-bordered, italic, slightly larger). Commentary follows in regular paragraph style underneath. Self-contained — readable without scrolling to lyrics.
 
-Iterates over all interpretation rows. For each, fetches song's lyrics from Genius, calls Claude with new prompt, updates the interpretation content. Returns `{updated: N}`.
+- [ ] **Step 10: Update `LyricsPanel.tsx`**
 
-- [ ] **Step 8: Update tests**
+Remove click-to-explain logic: drop `onLineSelect`, `selectedLyric` props. Just renders lyrics line-by-line in a scroll-able sticky column. No interactions.
 
----
+- [ ] **Step 11: Remove click-handler state from song page**
 
-## Task 3: Frontend refactor
+Drop `selectedBreakdown`, `selectedLyric`, `handleLineSelect`. Simpler component.
 
-- [ ] **Step 9: Update types and API client**
-
-Make `Song.lyrics` optional. Add `getSongLyrics(id: string): Promise<string | null>` in `lib/api.ts`.
-
-- [ ] **Step 10: Create `LyricsDrawer.tsx`**
-
-Slide-in from right. Fetches on mount/open. Shows spinner. Close on Escape, X, outside-click. Inside, renders `<LyricsPanel>` in read-only mode (no click handlers).
-
-- [ ] **Step 11: Update `BreakdownCard.tsx`**
-
-Each card shows the quoted lyric as a prominent block (italic, bordered, multi-line), then the commentary underneath.
-
-- [ ] **Step 12: Refactor `AnalysisPanel.tsx`**
-
-Drop the sticky-sidebar styling. Convert to long-read content blocks. Remove `selectedBreakdown` and click-to-explain props.
-
-- [ ] **Step 13: Refactor `app/song/[id]/page.tsx`**
-
-Single-column layout. Remove LyricsPanel rendering. Add "Show full lyrics" button that opens LyricsDrawer.
-
-- [ ] **Step 14: Run frontend checks**
+- [ ] **Step 12: Run TypeScript + build checks + commit**
 
 ```bash
 cd frontend && npx tsc --noEmit && npx next build
+git add frontend/ && git commit -m "feat: analysis-first two-column song page with self-contained breakdown cards"
 ```
 
 ---
 
-## Task 4: Run backfill
+## Task 3: Footer with tip jar + disclaimers
 
-- [ ] **Step 15: Call `POST /admin/reanalyze-all` once locally**
+- [ ] **Step 13: Create `frontend/components/Footer.tsx`**
 
-After deploying the new prompt. Updates every stored interpretation in place. Cost is ~$0.03 per song.
+Site-wide footer with:
+- "Lyriq's analyses are AI-generated commentary, not endorsed by artists or rights holders."
+- "Lyrics provided by Genius."
+- "Support hosting ☕" link → placeholder URL for the tip jar (Stripe Payment Link or Ko-fi, configurable)
+- Disclaimer: "Tips help cover AI costs and are completely optional. Donations don't unlock any features."
+
+- [ ] **Step 14: Mount Footer in `app/layout.tsx`**
+
+Wraps `{children}` so it appears on every page.
+
+- [ ] **Step 15: Commit**
+
+```bash
+git add frontend/components/Footer.tsx frontend/app/layout.tsx && git commit -m "feat: site footer with AI disclaimer, attribution, and tip jar"
+```
 
 ---
 
-## Commit Plan
+## Task 4: One-off backfill
 
-One commit per task:
-1. `feat: update Claude prompt to require verbatim lyric quotes in breakdowns`
-2. `refactor: lyrics fetched on-demand; analyze stores metadata only`
-3. `feat: analysis-first song page with slide-in lyrics drawer`
-4. `chore: re-analyze all stored songs under new prompt`
+- [ ] **Step 16: Run `POST /admin/reanalyze-all` locally**
+
+After backend deploys with the new model + prompt. Re-generates every stored interpretation under Haiku + new prompt. Cost: ~$0.30 total (rough estimate).
+
+- [ ] **Step 17: Spot-check 3-5 re-analyzed songs**
+
+Verify the breakdown cards now show quoted lyrics prominently and read well standalone.
 
 ---
 
-## Future Musixmatch swap
+## Push
 
-When ready, the only changes needed:
-- `backend/services/genius.py` `fetch_lyrics` → swap to `musixmatch.fetch_lyrics_by_name`
-- Add Musixmatch attribution UI inside the drawer
-- Remove Genius URL dependency in `/songs/{id}/lyrics` (Musixmatch uses title+artist lookup)
+```bash
+git push
+```
 
-Frontend doesn't change at all.
+---
+
+## What's deferred
+
+Items NOT in this refactor — to be done in later phases:
+
+- **Seed corpus** (~200 pre-analyzed Billboard songs) — separate pass, can run anytime after this lands
+- **ToS / Privacy / DMCA pages** — separate pre-launch task
+- **DMCA agent registration** — owner action, not code
+- **Cookie consent banner** — pre-launch task
+- **Production hosting setup** — pre-launch task
+- **Persist budget tracker to DB** — current in-memory tracker resets on backend restart; acceptable for MVP
+
+---
+
+## Risk notes
+
+- **In-memory budget tracker resets on restart.** Spend could exceed cap if backend restarts often. Acceptable for MVP; persist later if needed.
+- **Haiku quality vs Sonnet.** Watch the first few re-analyzed songs. If quality drops noticeably, can revert to Sonnet by changing one constant.
+- **Tip jar URL is a placeholder.** Owner picks Stripe Payment Link or Ko-fi, hard-codes the URL, no app changes needed beyond that.
