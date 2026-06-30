@@ -439,6 +439,29 @@ def test_trending_themes_empty_when_no_data():
     assert response.json() == []
 
 
+def test_songs_by_theme_returns_matching_songs():
+    matches = [
+        {"id": "s1", "title": "Test Song", "artist": "Test Artist", "tldr": "A summary.", "metadata": None}
+    ]
+    with patch("routes.songs.supabase_service.find_songs_by_theme", return_value=matches) as mock_find:
+        response = client.get("/songs/by-theme?theme=love&limit=20")
+    assert response.status_code == 200
+    assert response.json()[0]["title"] == "Test Song"
+    mock_find.assert_called_once_with("love", 20)
+
+
+def test_songs_by_theme_empty_when_no_match():
+    with patch("routes.songs.supabase_service.find_songs_by_theme", return_value=[]):
+        response = client.get("/songs/by-theme?theme=obscure")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_songs_by_theme_requires_theme_param():
+    response = client.get("/songs/by-theme")
+    assert response.status_code == 422
+
+
 def test_songs_search_handles_query_with_special_chars():
     # Query with commas/quotes/parens should not blow up the SQL filter
     with patch("routes.songs.genius_service.search_songs", return_value={"songs": [], "lyrics": [], "artists": []}), \

@@ -242,6 +242,15 @@ async def trending_themes(limit: int = Query(default=5, ge=1, le=20)):
     return supabase_service.get_trending_themes(limit)
 
 
+@router.get("/songs/by-theme")
+async def songs_by_theme(
+    theme: str = Query(..., min_length=1, max_length=100),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    """List analyzed songs in the corpus tagged with the given theme."""
+    return supabase_service.find_songs_by_theme(theme, limit)
+
+
 @router.get("/album/{album_id}", response_model=AlbumResponse)
 async def get_album(album_id: str):
     album = await _resolve_album(album_id)

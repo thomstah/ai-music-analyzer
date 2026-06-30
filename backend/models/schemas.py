@@ -63,6 +63,14 @@ class TrendingTheme(BaseModel):
     count: int
 
 
+class ThemeSongResult(BaseModel):
+    id: str
+    title: str
+    artist: str
+    tldr: Optional[str] = None
+    metadata: Optional[dict] = None
+
+
 class AlbumSearchResult(BaseModel):
     album_id: int
     name: str

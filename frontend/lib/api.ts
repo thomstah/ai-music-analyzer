@@ -1,4 +1,4 @@
-import { Song, SearchResults, BillboardSong, Article, TrendingTheme, Album, Artist } from '@/types/song';
+import { Song, SearchResults, BillboardSong, Article, TrendingTheme, Album, Artist, ThemeSongResult } from '@/types/song';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -56,6 +56,15 @@ export async function getMusicNews(limit = 8): Promise<Article[]> {
 
 export async function getTrendingThemes(limit = 5): Promise<TrendingTheme[]> {
   const res = await fetch(`${BASE_URL}/trending/themes?limit=${limit}`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function getSongsByTheme(theme: string, limit = 20): Promise<ThemeSongResult[]> {
+  const res = await fetch(
+    `${BASE_URL}/songs/by-theme?theme=${encodeURIComponent(theme)}&limit=${limit}`,
+    { cache: 'no-store' },
+  );
   if (!res.ok) return [];
   return res.json();
 }

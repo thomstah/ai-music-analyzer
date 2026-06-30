@@ -107,6 +107,14 @@ export interface TrendingTheme {
   count: number;
 }
 
+export interface ThemeSongResult {
+  id: string;
+  title: string;
+  artist: string;
+  tldr: string | null;
+  metadata: SongMetadata | null;
+}
+
 export interface ArtistTopSong {
   genius_id: number;
   title: string;

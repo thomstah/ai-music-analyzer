@@ -159,6 +159,48 @@ def get_trending_themes(limit: int = 5) -> list[dict]:
     return aggregated[:limit]
 
 
+def find_songs_by_theme(theme: str, limit: int = 20) -> list[dict]:
+    """Return songs whose interpretation contains the given theme tag.
+
+    Case-insensitive match. Uses Python-side filtering against the interpretations
+    table for MVP simplicity; revisit if the table grows past ~10k rows.
+    """
+    theme_normalized = theme.strip().lower()
+    if not theme_normalized:
+        return []
+
+    client = get_client()
+    result = (
+        client.table("interpretations")
+        .select("content, songs(id, title, artist, metadata)")
+        .limit(10000)
+        .execute()
+    )
+    matches: list[dict] = []
+    seen_song_ids: set[str] = set()
+    for row in result.data or []:
+        content = row.get("content") or {}
+        themes = content.get("themes") or []
+        normalized = [t.strip().lower() for t in themes if isinstance(t, str)]
+        if theme_normalized not in normalized:
+            continue
+        song = row.get("songs") or {}
+        song_id = song.get("id")
+        if not song_id or song_id in seen_song_ids:
+            continue
+        seen_song_ids.add(song_id)
+        matches.append({
+            "id": song_id,
+            "title": song.get("title", ""),
+            "artist": song.get("artist", ""),
+            "metadata": song.get("metadata"),
+            "tldr": content.get("tldr"),
+        })
+        if len(matches) >= limit:
+            break
+    return matches
+
+
 def find_album(genius_album_id: int) -> Optional[dict]:
     client = get_client()
     result = (

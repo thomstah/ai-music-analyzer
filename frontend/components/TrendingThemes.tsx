@@ -14,7 +14,7 @@ export default function TrendingThemes({ themes }: { themes: TrendingTheme[] }) 
       {themes.map(t => (
         <Link
           key={t.theme}
-          href={`/?q=${encodeURIComponent(t.theme)}`}
+          href={`/theme/${encodeURIComponent(t.theme)}`}
           className="bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-sm px-3 py-1.5 rounded-full transition-colors"
         >
           {t.theme}
