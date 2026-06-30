@@ -1,16 +1,20 @@
 'use client';
-import { useState, FormEvent } from 'react';
+import { useState, useTransition, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Spinner from '@/components/Spinner';
 
 export default function Navbar() {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [isPending, startTransition] = useTransition();
 
   function handleSearch(e: FormEvent) {
     e.preventDefault();
     const q = query.trim();
-    if (!q) return;
-    router.push(`/?q=${encodeURIComponent(q)}`);
+    if (!q || isPending) return;
+    startTransition(() => {
+      router.push(`/?q=${encodeURIComponent(q)}`);
+    });
   }
 
   return (
@@ -24,13 +28,16 @@ export default function Navbar() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Song, artist, or lyric…"
-            className="flex-1 bg-neutral-800 text-white placeholder-neutral-500 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+            disabled={isPending}
+            className="flex-1 bg-neutral-800 text-white placeholder-neutral-500 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-60"
           />
           <button
             type="submit"
-            className="bg-purple-600 hover:bg-purple-500 text-white text-sm px-4 py-1.5 rounded font-medium transition-colors"
+            disabled={isPending}
+            className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-70 text-white text-sm px-4 py-1.5 rounded font-medium transition-colors"
           >
-            Search
+            {isPending && <Spinner size="sm" />}
+            {isPending ? 'Searching…' : 'Search'}
           </button>
         </form>
       </div>
