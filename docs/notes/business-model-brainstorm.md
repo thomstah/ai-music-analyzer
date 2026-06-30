@@ -1,6 +1,10 @@
-# Business Model Brainstorm
+# Business Model Brainstorm (Deferred Path)
 
-**Status:** Reference doc — not yet implemented. Captured 2026-06-28.
+**Status:** Deferred. Captured 2026-06-28, superseded 2026-06-30 by the [cost-capped launch plan](./cost-capped-launch-plan.md).
+
+**Why deferred:** Lyriq is launching as a free portfolio project with a Claude budget cap and an optional tip jar. The full freemium / Supabase Auth / Stripe subscription architecture below is preserved here as a *future* option — to be revisited if the cost cap is hit consistently and demand justifies real monetization. See the [trigger conditions](./cost-capped-launch-plan.md#trigger-conditions-to-revisit-this-model) in the current plan.
+
+---
 
 The goal: introduce a free tier and a premium subscription so that AI inference costs (Claude) don't scale linearly with user growth. Free tier uses already-cached Genius/community data; premium unlocks Claude.
 

@@ -198,34 +198,32 @@ cd frontend && npx next build      # Production build verification
 - [x] `POST /analyze` no longer calls Claude — returns basic info instantly
 - [x] `POST /songs/{id}/deep-analyze` runs Claude on demand
 - [x] Song page shows "Get deep analysis" CTA in basic mode
-- [x] Architectural seam for future paywall
 
-### 🚧 Phase 9: Pre-public migration (planned, partially scaffolded)
-- [ ] Swap Genius lyrics scraper → Musixmatch (licensed, paid Basic plan)
-- [ ] Restructure song page to analysis-first (lyrics behind opt-in toggle, no DB caching of lyrics text)
-- [ ] Update Claude prompt to require verbatim lyric quotes inside breakdowns
+### 🚧 Phase 9: Analysis-first refactor (planned)
+- [ ] Single-column long-read song page (replaces lyrics-left/analysis-right)
+- [ ] Lyrics behind a slide-in drawer (fetched on-demand, never cached)
+- [ ] Self-contained breakdown cards (quoted lyrics + commentary)
+- [ ] Updated Claude prompt requiring verbatim lyric quotes
+- [ ] Re-analyze stored songs under new prompt
+
+### 🚧 Phase 10: Cost-capped public launch (planned)
+*Note: This is the current direction. Full freemium / auth / Stripe path is deferred — see [business-model-brainstorm.md](docs/notes/business-model-brainstorm.md).*
+- [ ] Switch Claude model from Sonnet to Haiku 4.5 (3× cost reduction)
+- [ ] Monthly Claude budget cap with `429 Too Many Requests` when exceeded
+- [ ] Pre-seed corpus with ~200 popular pre-analyzed songs (one-time)
+- [ ] Tip jar link in footer (Stripe Payment Link or Ko-fi, no-quid-pro-quo wording)
 - [ ] Terms of Service + Privacy Policy pages live
 - [ ] DMCA designated agent registered with US Copyright Office
 - [ ] AI-generated content disclaimer visible near every analysis
+- [ ] "Lyrics from Genius" attribution
 - [ ] Cookie consent banner (EU compliance)
-
-### 🔮 Phase 10: Auth + payments (planned)
-- [ ] Supabase Auth integration (email + Google OAuth)
-- [ ] User accounts with `subscription_tier` (free / premium / beta)
-- [ ] Free tier: basic analysis only (community annotations + context)
-- [ ] Premium tier ($4.99/mo): unlocks Claude deep analysis
-- [ ] Stripe Checkout for subscription signup
-- [ ] Stripe Customer Portal for self-service management
-- [ ] Stripe webhook handler with signature verification
-- [ ] Beta-period mass-grant of premium access during launch
-
-### 🔮 Phase 11: Public release
-- [ ] Trademark search on "Lyriq"
-- [ ] Brand site + landing page
-- [ ] Email transactional setup (welcome, billing receipts)
-- [ ] Analytics and error monitoring
 - [ ] Production hosting (Railway/Render backend, Vercel frontend)
-- [ ] LinkedIn / social launch
+- [ ] LinkedIn / social share
+
+### 🔮 Phase 11: Scale-driven follow-ups (triggered by demand, not pre-built)
+- [ ] **If** monthly budget cap is hit consistently → Musixmatch lyrics migration (see [migration plan](docs/notes/musixmatch-migration-plan.md))
+- [ ] **If** sustained traffic / tip income → consider subscription tier (see [deferred business model](docs/notes/business-model-brainstorm.md))
+- [ ] **If** press / serious attention → trademark search on "Lyriq", brand site, analytics
 
 ### 💡 Future ideas
 - 30-second song previews via Spotify or Deezer
@@ -243,8 +241,9 @@ Internal planning and reference docs live under `docs/`:
 
 - **[`docs/superpowers/specs/`](docs/superpowers/specs/)** — Design specs for each major feature
 - **[`docs/superpowers/plans/`](docs/superpowers/plans/)** — Step-by-step implementation plans
-- **[`docs/notes/business-model-brainstorm.md`](docs/notes/business-model-brainstorm.md)** — Subscription tier plan, auth/payments architecture, security concerns
-- **[`docs/notes/musixmatch-migration-plan.md`](docs/notes/musixmatch-migration-plan.md)** — What changes when switching from Genius scraping to licensed Musixmatch
+- **[`docs/notes/cost-capped-launch-plan.md`](docs/notes/cost-capped-launch-plan.md)** — **Current direction.** Free-for-all launch with monthly Claude budget cap + optional tip jar
+- **[`docs/notes/business-model-brainstorm.md`](docs/notes/business-model-brainstorm.md)** — Deferred full freemium / auth / Stripe path, kept as future option
+- **[`docs/notes/musixmatch-migration-plan.md`](docs/notes/musixmatch-migration-plan.md)** — Lyrics licensing migration, triggered by traffic/legal needs
 - **[`docs/notes/legal-templates.md`](docs/notes/legal-templates.md)** — Drafts for Terms of Service, Privacy Policy, DMCA notice (require attorney review before publishing)
 
 ---
@@ -253,13 +252,15 @@ Internal planning and reference docs live under `docs/`:
 
 **This app is currently in dev/hobby mode and is not publicly accessible.** The lyrics scraping from Genius violates their Terms of Service and is acceptable only for a private, non-distributed, single-user dev environment.
 
-Before any public release, the following must happen (tracked in Phase 9 above):
-- Switch lyrics source to licensed Musixmatch
+Before any public release, the following must happen (tracked in Phase 10 above):
 - Publish Terms of Service, Privacy Policy, and DMCA notice
 - Register a DMCA designated agent
 - Add AI-generated content disclaimers
+- Add "Lyrics from Genius" attribution
+- Frame the product as music criticism (not as a lyrics site)
+- Use no-quid-pro-quo wording on the tip jar
 
-See [`docs/notes/legal-templates.md`](docs/notes/legal-templates.md) and [`docs/notes/musixmatch-migration-plan.md`](docs/notes/musixmatch-migration-plan.md) for the full plan.
+Musixmatch lyrics licensing migration is **deferred** under the cost-capped model. It becomes mandatory if traffic grows past low-hundreds of daily users, a takedown arrives, or a real paid tier is launched. See [`docs/notes/cost-capped-launch-plan.md`](docs/notes/cost-capped-launch-plan.md) and [`docs/notes/musixmatch-migration-plan.md`](docs/notes/musixmatch-migration-plan.md).
 
 ---
 

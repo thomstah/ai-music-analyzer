@@ -151,13 +151,16 @@ Realistic for a small launch but means you need at least a few hundred free user
 
 ## Trigger conditions for the migration
 
-Do the migration the day BEFORE any of these happen:
-- Public LinkedIn / social media post about the product
-- First paying customer signup
-- First press / blog mention
-- First time you tell anyone non-trivially about it (recruiter, investor, etc.)
+Under the [cost-capped launch plan](./cost-capped-launch-plan.md), Musixmatch is **not required at launch**. A free hobby project with tips can defensibly stay on Genius scraping while traffic is small.
 
-Until then: stay on Genius scraping is acceptable risk for a hobby/dev project.
+Migrate when any of these happen:
+- **Traffic grows past low-hundreds of daily users** — visibility increases enforcement risk
+- **A C&D arrives** from Genius or any music publisher
+- **You decide to launch a real paid tier** — monetization shifts the legal posture significantly
+- **Press / press-adjacent coverage** that drives sustained sustained traffic
+- **You can sustain $49/mo Musixmatch Basic from tips or other revenue**
+
+For a small free portfolio project that stays small: indefinitely deferring is acceptable risk.
 
 ---
 
