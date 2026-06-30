@@ -7,6 +7,7 @@ import LyricsPanel from '@/components/LyricsPanel';
 import AnalysisPanel from '@/components/AnalysisPanel';
 import Spinner from '@/components/Spinner';
 import SongBanner from '@/components/SongBanner';
+import SongSectionNav, { SectionLink } from '@/components/SongSectionNav';
 
 function parseCachedSong(json: string): Song | null {
   try {
@@ -67,9 +68,25 @@ export default function SongPage() {
     return <div className="text-red-400 p-12 text-sm">Song not found.</div>;
   }
 
+  const interp = song.interpretation;
+  const hasCommunity = (song.community_commentary?.length ?? 0) > 0;
+
+  const sections: SectionLink[] = [
+    interp?.tldr ? { id: 'tldr', label: 'TL;DR' } : null,
+    interp ? { id: 'essence', label: 'Themes' } : null,
+    interp ? { id: 'meaning', label: 'Meaning' } : null,
+    interp && interp.key_lyric_breakdowns.length > 0
+      ? { id: 'key-lines', label: 'Key Lines' }
+      : null,
+    hasCommunity ? { id: 'community', label: 'Community' } : null,
+    { id: 'lyrics', label: 'Lyrics' },
+  ].filter((s): s is SectionLink => s !== null);
+
   return (
     <main className="max-w-6xl mx-auto px-6 py-8">
       <SongBanner song={song} />
+
+      <SongSectionNav sections={sections} />
 
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         {/* Analysis — primary content, wider column */}
@@ -83,7 +100,10 @@ export default function SongPage() {
           />
         </div>
         {/* Lyrics — secondary column, sticky on desktop */}
-        <aside className="w-full lg:w-96 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto bg-neutral-900 rounded-xl p-5">
+        <aside
+          id="lyrics"
+          className="w-full lg:w-96 shrink-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto bg-neutral-900 rounded-xl p-5 scroll-mt-16"
+        >
           <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">
             Lyrics
           </h2>

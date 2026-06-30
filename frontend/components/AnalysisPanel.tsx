@@ -66,7 +66,7 @@ export default function AnalysisPanel({
         <>
           {/* TL;DR */}
           {interpretation.tldr && (
-            <section>
+            <section id="tldr" className="scroll-mt-16">
               <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">
                 TL;DR
               </p>
@@ -77,7 +77,7 @@ export default function AnalysisPanel({
           )}
 
           {/* Tone + Themes side-by-side on wider screens */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
+          <section id="essence" className="scroll-mt-16 grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
             <div className="flex flex-col">
               <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">
                 Emotional Tone
@@ -105,7 +105,7 @@ export default function AnalysisPanel({
           </section>
 
           {/* Meaning */}
-          <section>
+          <section id="meaning" className="scroll-mt-16">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">
                 Meaning
@@ -129,7 +129,7 @@ export default function AnalysisPanel({
 
           {/* Line-by-line breakdowns */}
           {interpretation.key_lyric_breakdowns.length > 0 && (
-            <section>
+            <section id="key-lines" className="scroll-mt-16">
               <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">
                 Key Lines
               </p>
@@ -145,7 +145,7 @@ export default function AnalysisPanel({
 
       {/* Community commentary */}
       {sortedCommentary.length > 0 && (
-        <section>
+        <section id="community" className="scroll-mt-16">
           <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">
             Community
           </p>
