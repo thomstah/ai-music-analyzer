@@ -77,20 +77,20 @@ export default function AnalysisPanel({
           )}
 
           {/* Tone + Themes side-by-side on wider screens */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
+          <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
+            <div className="flex flex-col">
               <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">
                 Emotional Tone
               </p>
-              <span className="inline-block bg-neutral-800 text-purple-300 text-sm font-medium px-3 py-1 rounded-md">
+              <div className="flex-1 bg-neutral-800 text-purple-300 text-sm font-medium px-4 py-3 rounded-md flex items-center leading-relaxed">
                 {interpretation.emotional_tone}
-              </span>
+              </div>
             </div>
-            <div>
+            <div className="flex flex-col">
               <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">
                 Themes
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 content-start">
                 {interpretation.themes.map(theme => (
                   <Link
                     key={theme}
