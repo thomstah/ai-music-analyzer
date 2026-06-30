@@ -167,6 +167,26 @@ def test_deep_analyze_runs_claude_when_no_existing_interpretation():
     mock_claude.assert_awaited_once()
 
 
+def test_deep_analyze_returns_429_when_budget_exhausted():
+    stored_song = {
+        "id": "song-789",
+        "title": "Bohemian Rhapsody",
+        "artist": "Queen",
+        "lyrics": "Is this the real life?",
+        "genius_id": 12345,
+        "created_at": "2026-05-17T00:00:00",
+        "interpretations": [],
+        "metadata": None,
+    }
+    with patch("routes.songs.supabase_service.get_song_by_id", return_value=stored_song), \
+         patch("routes.songs.claude_budget.within_budget", return_value=False), \
+         patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock) as mock_claude:
+        response = client.post("/songs/song-789/deep-analyze")
+    assert response.status_code == 429
+    assert "budget" in response.json()["detail"].lower()
+    mock_claude.assert_not_awaited()
+
+
 def test_deep_analyze_returns_cached_interpretation_without_calling_claude():
     stored_song = {
         "id": "song-789",

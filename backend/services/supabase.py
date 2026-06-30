@@ -82,6 +82,20 @@ def get_song_by_id(song_id: str) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 
+def list_songs_with_interpretations(limit: int = 1000) -> list[dict]:
+    """List songs that have at least one stored interpretation. Used by the one-off
+    `/admin/reanalyze-all` backfill to regenerate interpretations under a new prompt
+    or model."""
+    client = get_client()
+    result = (
+        client.table("songs")
+        .select("id, title, artist, lyrics, interpretations!inner(id)")
+        .limit(limit)
+        .execute()
+    )
+    return result.data or []
+
+
 def find_discourse(song_id: str) -> Optional[dict]:
     client = get_client()
     result = (

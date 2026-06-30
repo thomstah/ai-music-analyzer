@@ -12,9 +12,9 @@ import services.anthropic as anthropic_service
 import services.discourse as discourse_service
 import services.billboard as billboard_service
 import services.news as news_service
+import services.claude_budget as claude_budget
 # musixmatch_service intentionally not imported here — wired up in services/musixmatch.py
-# but not used in the analyze flow. Swap genius_service.fetch_lyrics → musixmatch
-# before public release. See docs/notes/business-model-brainstorm.md.
+# but not used in the analyze flow. See docs/notes/musixmatch-migration-plan.md.
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +190,16 @@ async def deep_analyze(song_id: str):
         excerpts = discourse_row["excerpts"] if discourse_row else []
         return {**formatted, "community_commentary": excerpts}
 
+    # Budget gate — Lyriq is a free hobby project with a monthly Claude cap.
+    if not claude_budget.within_budget():
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Monthly AI budget reached. New analyses resume on the 1st of next month. "
+                "Browse already-analyzed songs in the meantime."
+            ),
+        )
+
     # Need to generate — pull discourse for context
     discourse_row = supabase_service.find_discourse(song_id)
     excerpts = discourse_row["excerpts"] if discourse_row else []
@@ -303,3 +313,37 @@ async def get_artist(artist_id: str):
     if not artist:
         raise HTTPException(status_code=404, detail="Artist not found")
     return artist
+
+
+@router.post("/admin/reanalyze-all")
+async def reanalyze_all(limit: int = Query(default=1000, ge=1, le=10000)):
+    """One-off: re-run Claude analysis for every stored song under the current model
+    and prompt. Used after prompt/model changes to keep the DB consistent. Skips songs
+    whose lyrics aren't stored. Stops if the monthly budget is exhausted."""
+    songs = supabase_service.list_songs_with_interpretations(limit=limit)
+    updated = 0
+    skipped_no_lyrics = 0
+    skipped_budget = 0
+    for song in songs:
+        if not song.get("lyrics"):
+            skipped_no_lyrics += 1
+            continue
+        if not claude_budget.within_budget():
+            skipped_budget += 1
+            continue
+        discourse_row = supabase_service.find_discourse(song["id"])
+        excerpts = discourse_row["excerpts"] if discourse_row else []
+        try:
+            interpretation, model_version = await anthropic_service.generate_interpretation(
+                song["title"], song["artist"], song["lyrics"], discourse=excerpts
+            )
+            supabase_service.store_interpretation(song["id"], interpretation, model_version)
+            updated += 1
+        except Exception as exc:
+            logger.warning("Re-analysis failed for song %s: %s", song["id"], exc)
+    return {
+        "updated": updated,
+        "skipped_no_lyrics": skipped_no_lyrics,
+        "skipped_budget": skipped_budget,
+        "remaining_budget_usd": round(claude_budget.remaining_usd(), 2),
+    }

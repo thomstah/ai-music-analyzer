@@ -3,8 +3,9 @@ import anthropic
 from typing import Optional
 from fastapi import HTTPException
 from config import settings
+import services.claude_budget as claude_budget
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 2500
 # Required keys in Claude's JSON output. Note: InterpretationContent in schemas.py
 # marks tldr as Optional so legacy DB rows (analyzed before tldr existed) still
@@ -16,7 +17,9 @@ SYSTEM_PROMPT = """You are a music critic and literary analyst. Analyze the prov
 - overall_meaning: 2-3 paragraphs interpreting the song's central message and narrative
 - emotional_tone: a brief phrase describing the emotional character (e.g. "melancholic and introspective")
 - themes: a list of 3-6 theme strings (e.g. ["loss", "memory", "identity"])
-- key_lyric_breakdowns: a list of objects, each with "lyric" (a quoted fragment) and "breakdown" (explanation of its significance)
+- key_lyric_breakdowns: a list of 4-6 objects covering the most meaningful moments in the song. Each object has:
+    - "lyric": 5-10 consecutive lyric lines, quoted VERBATIM from the source, separated by newlines. NEVER paraphrase, NEVER reference "the bridge" or "this line" — always include the actual quoted lines so the breakdown stands on its own.
+    - "breakdown": 2-4 sentences of commentary on those specific lines. Discuss imagery, meaning, technique, or context. The breakdown must be readable without the rest of the lyrics visible.
 
 Return ONLY valid JSON. No markdown fences, no explanation outside the JSON object."""
 
@@ -67,6 +70,7 @@ async def generate_interpretation(
         system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
         messages=[{"role": "user", "content": user_message}],
     )
+    claude_budget.record_usage(response.usage.input_tokens, response.usage.output_tokens)
     raw = response.content[0].text
 
     try:
@@ -86,6 +90,7 @@ async def generate_interpretation(
             {"role": "user", "content": "Your response was not valid JSON. Return ONLY the JSON object with no other text."},
         ],
     )
+    claude_budget.record_usage(retry.usage.input_tokens, retry.usage.output_tokens)
     try:
         parsed = json.loads(retry.content[0].text)
         if _is_valid_interpretation(parsed):

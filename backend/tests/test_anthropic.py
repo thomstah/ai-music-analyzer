@@ -20,6 +20,7 @@ def _make_response(text: str) -> MagicMock:
     content.text = text
     response = MagicMock()
     response.content = [content]
+    response.usage = MagicMock(input_tokens=100, output_tokens=500)
     return response
 
 
@@ -34,7 +35,7 @@ async def test_generate_interpretation_returns_parsed_json_and_model():
     assert result["overall_meaning"] == VALID_INTERPRETATION["overall_meaning"]
     assert result["emotional_tone"] == "melancholic"
     assert "mortality" in result["themes"]
-    assert model == "claude-sonnet-4-6"
+    assert model == "claude-haiku-4-5-20251001"
 
 
 @pytest.mark.asyncio
