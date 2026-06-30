@@ -24,7 +24,7 @@
 | Re-analysis | Yes — re-analyze every stored song under new prompt + Haiku |
 | Budget cap | $20/mo Claude budget, in-memory tracker |
 | Out-of-budget UX | Friendly lockout + tip-jar nudge |
-| Tip jar | Footer link (Stripe Payment Link OR Ko-fi, owner picks later) |
+| Tip jar | **Deferred until launch.** Footer carries disclaimers only for now. |
 | Seed corpus | Defer to a separate pass after refactor lands |
 
 ---
@@ -163,15 +163,15 @@ git add frontend/ && git commit -m "feat: analysis-first two-column song page wi
 
 ---
 
-## Task 3: Footer with tip jar + disclaimers
+## Task 3: Footer with disclaimers (tip jar deferred)
 
 - [ ] **Step 13: Create `frontend/components/Footer.tsx`**
 
-Site-wide footer with:
+Site-wide footer with disclaimers only for now:
 - "Lyriq's analyses are AI-generated commentary, not endorsed by artists or rights holders."
-- "Lyrics provided by Genius."
-- "Support hosting ☕" link → placeholder URL for the tip jar (Stripe Payment Link or Ko-fi, configurable)
-- Disclaimer: "Tips help cover AI costs and are completely optional. Donations don't unlock any features."
+- "Lyrics and community annotations provided by Genius."
+
+Tip jar will be added in a separate pre-launch pass.
 
 - [ ] **Step 14: Mount Footer in `app/layout.tsx`**
 
@@ -180,7 +180,7 @@ Wraps `{children}` so it appears on every page.
 - [ ] **Step 15: Commit**
 
 ```bash
-git add frontend/components/Footer.tsx frontend/app/layout.tsx && git commit -m "feat: site footer with AI disclaimer, attribution, and tip jar"
+git add frontend/components/Footer.tsx frontend/app/layout.tsx && git commit -m "feat: site footer with AI disclaimer and Genius attribution"
 ```
 
 ---
