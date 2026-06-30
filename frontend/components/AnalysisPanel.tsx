@@ -1,5 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import { Interpretation, DiscourseExcerpt } from '@/types/song';
 import BreakdownCard from './BreakdownCard';
 import Spinner from './Spinner';
@@ -81,7 +82,7 @@ export default function AnalysisPanel({
               <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">
                 Emotional Tone
               </p>
-              <span className="inline-block bg-neutral-800 text-purple-300 text-sm font-medium px-3 py-1 rounded-full">
+              <span className="inline-block bg-neutral-800 text-purple-300 text-sm font-medium px-3 py-1 rounded-md">
                 {interpretation.emotional_tone}
               </span>
             </div>
@@ -91,9 +92,13 @@ export default function AnalysisPanel({
               </p>
               <div className="flex flex-wrap gap-2">
                 {interpretation.themes.map(theme => (
-                  <span key={theme} className="bg-neutral-800 text-neutral-300 text-sm px-2.5 py-1 rounded">
+                  <Link
+                    key={theme}
+                    href={`/theme/${encodeURIComponent(theme)}`}
+                    className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-sm px-2.5 py-1 rounded transition-colors"
+                  >
                     {theme}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </div>
