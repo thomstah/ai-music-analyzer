@@ -82,11 +82,24 @@ export default function SongPage() {
     { id: 'lyrics', label: 'Lyrics' },
   ].filter((s): s is SectionLink => s !== null);
 
-  return (
-    <main className="max-w-6xl mx-auto px-6 py-8">
-      <SongBanner song={song} />
+  const accent = song.metadata?.accent_color ?? null;
 
-      <SongSectionNav sections={sections} />
+  return (
+    <>
+      {accent && (
+        <div
+          aria-hidden
+          className="fixed inset-x-0 top-0 h-[600px] pointer-events-none -z-10"
+          style={{
+            background: `linear-gradient(to bottom, ${accent} 0%, transparent 100%)`,
+            opacity: 0.28,
+          }}
+        />
+      )}
+      <main className="max-w-6xl mx-auto px-6 py-8 relative">
+        <SongBanner song={song} />
+
+        <SongSectionNav sections={sections} />
 
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         {/* Analysis — primary content, wider column */}
@@ -110,6 +123,7 @@ export default function SongPage() {
           <LyricsPanel lyrics={song.lyrics} />
         </aside>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

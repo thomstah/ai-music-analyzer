@@ -96,6 +96,25 @@ def list_songs_with_interpretations(limit: int = 1000) -> list[dict]:
     return result.data or []
 
 
+def list_songs_needing_accent_color(limit: int = 1000) -> list[dict]:
+    """List songs that have album_art_url in metadata but no accent_color yet.
+    Used by `/admin/backfill-accent-colors`."""
+    client = get_client()
+    result = (
+        client.table("songs")
+        .select("id, metadata")
+        .not_.is_("metadata", "null")
+        .limit(limit)
+        .execute()
+    )
+    matches = []
+    for row in result.data or []:
+        meta = row.get("metadata") or {}
+        if meta.get("album_art_url") and not meta.get("accent_color"):
+            matches.append(row)
+    return matches
+
+
 def find_discourse(song_id: str) -> Optional[dict]:
     client = get_client()
     result = (

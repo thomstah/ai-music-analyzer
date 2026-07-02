@@ -13,6 +13,7 @@ import services.discourse as discourse_service
 import services.billboard as billboard_service
 import services.news as news_service
 import services.claude_budget as claude_budget
+import services.color as color_service
 # musixmatch_service intentionally not imported here — wired up in services/musixmatch.py
 # but not used in the analyze flow. See docs/notes/musixmatch-migration-plan.md.
 
@@ -142,6 +143,11 @@ async def analyze(request: AnalyzeRequest):
     # (services/musixmatch.py is wired up) before any public/monetized launch.
     genius_data = await genius_service.search_song(request.title, request.artist)
     song_metadata = await genius_service.get_song_details(genius_data["genius_id"])
+    # Best-effort accent color from the album art for the themed song page background.
+    if song_metadata.get("album_art_url"):
+        song_metadata["accent_color"] = await color_service.extract_dominant_color(
+            song_metadata["album_art_url"]
+        )
     lyrics = await genius_service.fetch_lyrics(genius_data["url"])
     excerpts = await discourse_service.fetch_discourse(
         genius_data.get("genius_id"), request.title, request.artist
@@ -356,3 +362,28 @@ async def reanalyze_all(limit: int = Query(default=1000, ge=1, le=10000)):
         "skipped_budget": skipped_budget,
         "remaining_budget_usd": round(claude_budget.remaining_usd(), 2),
     }
+
+
+@router.post("/admin/backfill-accent-colors")
+async def backfill_accent_colors(limit: int = Query(default=1000, ge=1, le=10000)):
+    """One-off: extract an accent color from album art for every stored song that
+    doesn't have one yet. Frontend uses accent_color to tint each song page."""
+    songs = supabase_service.list_songs_needing_accent_color(limit=limit)
+    updated = 0
+    failed = 0
+    for song in songs:
+        metadata = song.get("metadata") or {}
+        art_url = metadata.get("album_art_url")
+        if not art_url:
+            continue
+        color = await color_service.extract_dominant_color(art_url)
+        if not color:
+            failed += 1
+            continue
+        try:
+            supabase_service.update_song_metadata(song["id"], {**metadata, "accent_color": color})
+            updated += 1
+        except Exception as exc:
+            logger.warning("Accent color update failed for song %s: %s", song["id"], exc)
+            failed += 1
+    return {"updated": updated, "failed": failed, "scanned": len(songs)}

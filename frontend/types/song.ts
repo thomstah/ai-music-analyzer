@@ -25,6 +25,7 @@ export interface SongMetadata {
   album_name: string | null;
   release_year: string | null;
   producer: string | null;
+  accent_color?: string | null;
   musixmatch_url?: string | null;
   musixmatch_track_id?: number | null;
 }

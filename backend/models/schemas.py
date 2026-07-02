@@ -35,6 +35,7 @@ class SongMetadata(BaseModel):
     album_name: Optional[str] = None
     release_year: Optional[str] = None
     producer: Optional[str] = None
+    accent_color: Optional[str] = None
 
 
 class SongResponse(BaseModel):
