@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SearchResults, SearchResult, ArtistResult, AlbumSearchResult, Song } from '@/types/song';
 import { analyzeSong } from '@/lib/api';
-import Spinner from '@/components/Spinner';
 import AnalyzeProgressPill from '@/components/AnalyzeProgressPill';
 
 function SectionHeader({ label }: { label: string }) {
