@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlbumTrack, Song } from '@/types/song';
+import { DeezerAlbumTrack, Song } from '@/types/song';
 import { analyzeSong } from '@/lib/api';
 import Spinner from '@/components/Spinner';
 import { useAnalyzeProgress } from '@/hooks/useAnalyzeProgress';
@@ -13,7 +13,7 @@ function TrackRow({
   disabled,
   onClick,
 }: {
-  track: AlbumTrack;
+  track: DeezerAlbumTrack;
   index: number;
   loading: boolean;
   disabled: boolean;
@@ -24,11 +24,7 @@ function TrackRow({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={[
-        'w-full flex items-center gap-4 rounded px-3 py-2 transition-colors text-left',
-        track.genius_id ? 'hover:bg-neutral-800 disabled:opacity-60' : 'opacity-40 cursor-not-allowed',
-      ].join(' ')}
-      title={track.genius_id ? undefined : 'Track not available'}
+      className="w-full flex items-center gap-4 rounded px-3 py-2 hover:bg-neutral-800 disabled:opacity-60 transition-colors text-left"
     >
       <span className="text-neutral-600 font-medium w-6 text-right text-sm shrink-0">
         {index + 1}
@@ -46,11 +42,11 @@ function TrackRow({
   );
 }
 
-export default function Tracklist({
+export default function DeezerTracklist({
   tracks,
   artist,
 }: {
-  tracks: AlbumTrack[];
+  tracks: DeezerAlbumTrack[];
   artist: string;
 }) {
   const router = useRouter();
@@ -61,9 +57,9 @@ export default function Tracklist({
     return <p className="text-neutral-500 text-sm">No tracks listed.</p>;
   }
 
-  async function handleSelect(track: AlbumTrack) {
-    if (!track.genius_id || loadingId !== null) return;
-    setLoadingId(track.genius_id);
+  async function handleSelect(track: DeezerAlbumTrack) {
+    if (loadingId !== null) return;
+    setLoadingId(track.deezer_id);
     setError(null);
     try {
       const song: Song = await analyzeSong(track.title, artist);
@@ -80,12 +76,12 @@ export default function Tracklist({
       {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
       <ol className="space-y-1">
         {tracks.map((track, i) => (
-          <li key={track.genius_id ?? i}>
+          <li key={track.deezer_id}>
             <TrackRow
               track={track}
               index={i}
-              loading={loadingId === track.genius_id}
-              disabled={!!loadingId || !track.genius_id}
+              loading={loadingId === track.deezer_id}
+              disabled={loadingId !== null}
               onClick={() => handleSelect(track)}
             />
           </li>

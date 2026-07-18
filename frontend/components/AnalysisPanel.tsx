@@ -5,17 +5,24 @@ import { Interpretation, DiscourseExcerpt } from '@/types/song';
 import BreakdownCard from './BreakdownCard';
 import Spinner from './Spinner';
 
+export type DeepError =
+  | { kind: 'generic'; message: string }
+  | { kind: 'rate-limited'; retryAfter: number }
+  | { kind: 'budget-out'; resetsOn: string | null };
+
 interface Props {
   interpretation: Interpretation | null;
   commentary: DiscourseExcerpt[] | null;
+  songId: string;
   onRequestDeepAnalysis?: () => void;
   deepAnalysisLoading?: boolean;
-  deepAnalysisError?: string | null;
+  deepAnalysisError?: DeepError | null;
 }
 
 export default function AnalysisPanel({
   interpretation,
   commentary,
+  songId,
   onRequestDeepAnalysis,
   deepAnalysisLoading,
   deepAnalysisError,
@@ -39,25 +46,38 @@ export default function AnalysisPanel({
     <article className="space-y-8">
       {/* Deep analysis CTA — shown only when no interpretation exists yet */}
       {!interpretation && onRequestDeepAnalysis && (
-        <div className="bg-purple-950/40 border border-purple-800/60 rounded-lg p-5">
-          <p className="text-xs font-bold text-purple-300 uppercase tracking-widest mb-2">
-            Lyriq Deep Analysis
-          </p>
-          <p className="text-neutral-300 text-sm leading-relaxed mb-3">
-            Get a magazine-style breakdown of this song: TL;DR, themes, emotional tone,
-            and line-by-line interpretation — written by Claude.
-          </p>
-          {deepAnalysisError && (
-            <p className="text-red-400 text-xs mb-2">{deepAnalysisError}</p>
-          )}
+        <div>
           <button
             onClick={onRequestDeepAnalysis}
             disabled={deepAnalysisLoading}
-            className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white text-sm font-medium px-4 py-2 rounded-full transition-colors"
+            className="group w-full flex items-center justify-center gap-2 border border-dashed border-purple-700/70 hover:border-purple-500 hover:bg-purple-950/30 disabled:opacity-60 disabled:cursor-not-allowed text-purple-200 hover:text-white text-sm font-medium py-6 rounded-xl transition-colors"
           >
-            {deepAnalysisLoading && <Spinner size="sm" />}
-            {deepAnalysisLoading ? 'Analyzing…' : 'Get deep analysis'}
+            {deepAnalysisLoading ? (
+              <Spinner size="sm" />
+            ) : (
+              <>
+                <span aria-hidden className="text-purple-400 group-hover:text-purple-200 transition-colors">✦</span>
+                <span>Lyriq Deep Analysis</span>
+              </>
+            )}
           </button>
+          {deepAnalysisError && (
+            <div className="mt-3 border border-amber-700/50 bg-amber-950/30 rounded-lg p-3">
+              {deepAnalysisError.kind === 'budget-out' ? (
+                <p className="text-amber-200 text-sm">
+                  Lyriq&apos;s monthly analysis budget is out.
+                  {deepAnalysisError.resetsOn && ` New analyses resume on ${deepAnalysisError.resetsOn}.`}
+                  {' '}Existing analyses across the site still work.
+                </p>
+              ) : deepAnalysisError.kind === 'rate-limited' ? (
+                <p className="text-amber-200 text-sm">
+                  You&apos;re going a bit fast. Try again in about {deepAnalysisError.retryAfter}s.
+                </p>
+              ) : (
+                <p className="text-red-400 text-sm">{deepAnalysisError.message}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -135,7 +155,7 @@ export default function AnalysisPanel({
               </p>
               <div className="space-y-4">
                 {interpretation.key_lyric_breakdowns.map((bd, i) => (
-                  <BreakdownCard key={i} breakdown={bd} />
+                  <BreakdownCard key={i} breakdown={bd} songId={songId} index={i} />
                 ))}
               </div>
             </section>

@@ -34,10 +34,10 @@ export default function Navbar() {
           <button
             type="submit"
             disabled={isPending}
-            className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-70 text-white text-sm px-4 py-1.5 rounded font-medium transition-colors"
+            aria-label={isPending ? 'Searching' : 'Search'}
+            className="inline-flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-70 text-white text-sm px-4 py-1.5 rounded font-medium transition-colors w-24 shrink-0"
           >
-            {isPending && <Spinner size="sm" />}
-            {isPending ? 'Searching…' : 'Search'}
+            {isPending ? <Spinner size="sm" /> : 'Search'}
           </button>
         </form>
       </div>

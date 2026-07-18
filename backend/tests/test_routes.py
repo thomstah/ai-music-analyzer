@@ -77,6 +77,21 @@ def test_health_returns_ok():
     assert response.json() == {"status": "ok"}
 
 
+def test_analyze_returns_429_when_rate_limit_exceeded():
+    with patch("routes.songs.rate_limit.check", new_callable=AsyncMock, return_value=False):
+        response = client.post("/analyze", json={"title": "T", "artist": "A"})
+    assert response.status_code == 429
+    assert "retry" in response.json()["detail"].lower()
+    assert response.headers.get("Retry-After") == "60"
+
+
+def test_deep_analyze_returns_429_when_rate_limit_exceeded():
+    with patch("routes.songs.rate_limit.check", new_callable=AsyncMock, return_value=False):
+        response = client.post("/songs/song-789/deep-analyze")
+    assert response.status_code == 429
+    assert response.headers.get("Retry-After") == "60"
+
+
 def test_analyze_returns_cached_result_when_song_exists():
     fresh_row = {"id": "disc-1", "song_id": "song-123", "excerpts": [], "scraped_at": _fresh_scraped_at()}
     with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB), \
@@ -167,7 +182,7 @@ def test_deep_analyze_runs_claude_when_no_existing_interpretation():
     mock_claude.assert_awaited_once()
 
 
-def test_deep_analyze_returns_429_when_budget_exhausted():
+def test_deep_analyze_returns_402_when_budget_exhausted():
     stored_song = {
         "id": "song-789",
         "title": "Bohemian Rhapsody",
@@ -180,10 +195,13 @@ def test_deep_analyze_returns_429_when_budget_exhausted():
     }
     with patch("routes.songs.supabase_service.get_song_by_id", return_value=stored_song), \
          patch("routes.songs.claude_budget.within_budget", return_value=False), \
+         patch("routes.songs.claude_budget.reset_date_iso", return_value="2026-08-01"), \
          patch("routes.songs.anthropic_service.generate_interpretation", new_callable=AsyncMock) as mock_claude:
         response = client.post("/songs/song-789/deep-analyze")
-    assert response.status_code == 429
-    assert "budget" in response.json()["detail"].lower()
+    assert response.status_code == 402
+    body = response.json()
+    assert "budget" in body["detail"].lower()
+    assert body["resets_on"] == "2026-08-01"
     mock_claude.assert_not_awaited()
 
 
@@ -222,6 +240,7 @@ def test_songs_search_returns_categorized_results():
     with patch("routes.songs.genius_service.search_songs", return_value=categorized), \
          patch("routes.songs.supabase_service.find_artist_by_genius_id", return_value=None), \
          patch("routes.songs.deezer_service.search_artist_by_name", new_callable=AsyncMock, return_value=None), \
+         patch("routes.songs.deezer_service.search_albums", new_callable=AsyncMock, return_value=[]), \
          patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
         response = client.get("/songs/search?q=queen")
     assert response.status_code == 200
@@ -242,6 +261,7 @@ def test_songs_search_uses_cached_artist_photo_when_available():
     with patch("routes.songs.genius_service.search_songs", return_value=categorized), \
          patch("routes.songs.supabase_service.find_artist_by_genius_id", return_value=cached_artist), \
          patch("routes.songs.deezer_service.search_artist_by_name", new_callable=AsyncMock) as mock_deezer, \
+         patch("routes.songs.deezer_service.search_albums", new_callable=AsyncMock, return_value=[]), \
          patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
         response = client.get("/songs/search?q=drake")
     assert response.status_code == 200
@@ -260,6 +280,7 @@ def test_songs_search_falls_back_to_live_deezer_when_artist_not_cached():
          patch("routes.songs.supabase_service.find_artist_by_genius_id", return_value=None), \
          patch("routes.songs.deezer_service.search_artist_by_name", new_callable=AsyncMock,
                return_value={"id": 246791, "picture_xl": "https://cdn.deezer.com/drake-xl.jpg"}), \
+         patch("routes.songs.deezer_service.search_albums", new_callable=AsyncMock, return_value=[]), \
          patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
         response = client.get("/songs/search?q=drake")
     assert response.status_code == 200
@@ -269,6 +290,7 @@ def test_songs_search_falls_back_to_live_deezer_when_artist_not_cached():
 def test_songs_search_returns_empty_categories_when_no_results():
     empty = {"songs": [], "lyrics": [], "artists": []}
     with patch("routes.songs.genius_service.search_songs", return_value=empty), \
+         patch("routes.songs.deezer_service.search_albums", new_callable=AsyncMock, return_value=[]), \
          patch("routes.songs.supabase_service.search_cached_albums", return_value=[]):
         response = client.get("/songs/search?q=xyznotareal")
     assert response.status_code == 200
@@ -279,11 +301,86 @@ def test_songs_search_includes_albums_from_cache():
     genius_results = {"songs": [], "lyrics": [], "artists": []}
     albums = [{"album_id": 100, "name": "Album", "artist": "Artist", "thumbnail": None}]
     with patch("routes.songs.genius_service.search_songs", return_value=genius_results), \
+         patch("routes.songs.deezer_service.search_albums", new_callable=AsyncMock, return_value=[]), \
          patch("routes.songs.supabase_service.search_cached_albums", return_value=albums):
         response = client.get("/songs/search?q=test")
     assert response.status_code == 200
     data = response.json()
     assert data["albums"][0]["name"] == "Album"
+    assert data["albums"][0]["source"] == "cached"
+
+
+def test_songs_search_merges_local_lyric_hits_ahead_of_genius():
+    """Analyzed-corpus lyric matches should appear first in the lyrics list, with
+    Genius's own lyric hits following. Dupes (same genius_id) come only once."""
+    genius_results = {
+        "songs": [],
+        "lyrics": [
+            {"title": "Runaway", "artist": "Kanye West", "genius_id": 111, "thumbnail": None},
+            {"title": "Some Other Track", "artist": "Kanye West", "genius_id": 222, "thumbnail": None},
+        ],
+        "artists": [],
+    }
+    local = [
+        # matches genius_id 111 → should dedupe that Genius hit out
+        {"title": "Runaway", "artist": "Kanye West", "genius_id": 111,
+         "thumbnail": "art.jpg", "snippet": "…let's have a toast for the douchebags…"},
+    ]
+    with patch("routes.songs.genius_service.search_songs", return_value=genius_results), \
+         patch("routes.songs.deezer_service.search_albums", new_callable=AsyncMock, return_value=[]), \
+         patch("routes.songs.supabase_service.search_cached_albums", return_value=[]), \
+         patch("routes.songs.supabase_service.search_cached_songs_by_lyric", return_value=local):
+        response = client.get("/songs/search?q=toast")
+    assert response.status_code == 200
+    lyrics = response.json()["lyrics"]
+    assert len(lyrics) == 2
+    assert lyrics[0]["genius_id"] == 111
+    assert lyrics[0]["snippet"].startswith("…")
+    assert lyrics[1]["genius_id"] == 222
+    assert "snippet" not in lyrics[1]
+
+
+def test_songs_search_merges_live_deezer_albums_after_cached():
+    genius_results = {"songs": [], "lyrics": [], "artists": []}
+    cached = [{"album_id": 100, "name": "Take Care", "artist": "Drake", "thumbnail": "c.jpg"}]
+    deezer = [
+        # dupe with cached — should be filtered out
+        {"deezer_id": 9001, "title": "take care", "artist": "drake", "cover_url": "d.jpg", "release_year": "2011"},
+        # unique deezer hit
+        {"deezer_id": 9002, "title": "Views", "artist": "Drake", "cover_url": "v.jpg", "release_year": "2016"},
+    ]
+    with patch("routes.songs.genius_service.search_songs", return_value=genius_results), \
+         patch("routes.songs.deezer_service.search_albums", new_callable=AsyncMock, return_value=deezer), \
+         patch("routes.songs.supabase_service.search_cached_albums", return_value=cached):
+        response = client.get("/songs/search?q=drake")
+    assert response.status_code == 200
+    albums = response.json()["albums"]
+    assert len(albums) == 2
+    assert albums[0]["source"] == "cached"
+    assert albums[0]["name"] == "Take Care"
+    assert albums[1]["source"] == "deezer"
+    assert albums[1]["name"] == "Views"
+    assert albums[1]["album_id"] == 9002
+
+
+def test_get_deezer_album_returns_album_when_found():
+    album = {
+        "deezer_id": 302127, "title": "Discovery", "artist": "Daft Punk",
+        "cover_url": "d.jpg", "release_year": "2001",
+        "tracks": [{"deezer_id": 1, "title": "One More Time", "artist_name": "Daft Punk"}],
+    }
+    with patch("routes.songs.deezer_service.get_album", new_callable=AsyncMock, return_value=album):
+        response = client.get("/album/deezer/302127")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "Discovery"
+    assert len(data["tracks"]) == 1
+
+
+def test_get_deezer_album_returns_404_when_missing():
+    with patch("routes.songs.deezer_service.get_album", new_callable=AsyncMock, return_value=None):
+        response = client.get("/album/deezer/999999999")
+    assert response.status_code == 404
 
 
 def test_songs_search_requires_q_param():
@@ -345,32 +442,58 @@ def test_analyze_returns_fresh_cached_discourse_for_cached_song():
     assert data["community_commentary"][0]["source"] == "reddit"
 
 
-def test_analyze_refreshes_stale_discourse_for_cached_song():
-    stale_row = {"id": "disc-1", "song_id": "song-123", "excerpts": [], "scraped_at": _stale_scraped_at()}
+def test_analyze_returns_stale_discourse_immediately_and_refreshes_in_background():
+    """Fire-and-forget: response uses the stale cache, background task refreshes."""
+    stale_excerpts = [{"source": "reddit", "text": "stale one", "url": None, "metadata": {}}]
+    stale_row = {
+        "id": "disc-1", "song_id": "song-123",
+        "excerpts": stale_excerpts, "scraped_at": _stale_scraped_at(),
+    }
     with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB), \
          patch("routes.songs.supabase_service.find_discourse", return_value=stale_row), \
          patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
                return_value=MOCK_DISCOURSE_EXCERPTS) as mock_fetch, \
-         patch("routes.songs.supabase_service.store_discourse", return_value={}):
+         patch("routes.songs.supabase_service.store_discourse", return_value={}) as mock_store:
         response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
 
     assert response.status_code == 200
-    mock_fetch.assert_called_once()
-    data = response.json()
-    assert data["community_commentary"][0]["source"] == "reddit"
+    # Response body carries the *stale* cached content, not the freshly-fetched one.
+    assert response.json()["community_commentary"][0]["text"] == "stale one"
+    # But the background task did run (TestClient waits for background completion).
+    mock_fetch.assert_awaited_once()
+    mock_store.assert_called_once()
 
 
-def test_analyze_scrapes_discourse_when_none_cached_for_cached_song():
+def test_analyze_returns_empty_discourse_and_schedules_refresh_when_missing():
     with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB), \
          patch("routes.songs.supabase_service.find_discourse", return_value=None), \
          patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock,
-               return_value=MOCK_DISCOURSE_EXCERPTS), \
-         patch("routes.songs.supabase_service.store_discourse", return_value={}):
+               return_value=MOCK_DISCOURSE_EXCERPTS) as mock_fetch, \
+         patch("routes.songs.supabase_service.store_discourse", return_value={}) as mock_store:
         response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
 
     assert response.status_code == 200
-    data = response.json()
-    assert data["community_commentary"][0]["source"] == "reddit"
+    # No cache yet → empty in the response, but the background refresh was scheduled.
+    assert response.json()["community_commentary"] == []
+    mock_fetch.assert_awaited_once()
+    mock_store.assert_called_once()
+
+
+def test_analyze_does_not_schedule_refresh_when_discourse_is_fresh():
+    fresh_row = {
+        "id": "disc-1", "song_id": "song-123",
+        "excerpts": MOCK_DISCOURSE_EXCERPTS, "scraped_at": _fresh_scraped_at(),
+    }
+    with patch("routes.songs.supabase_service.find_song", return_value=MOCK_SONG_FROM_DB), \
+         patch("routes.songs.supabase_service.find_discourse", return_value=fresh_row), \
+         patch("routes.songs.discourse_service.fetch_discourse", new_callable=AsyncMock) as mock_fetch, \
+         patch("routes.songs.supabase_service.store_discourse") as mock_store:
+        response = client.post("/analyze", json={"title": "Bohemian Rhapsody", "artist": "Queen"})
+
+    assert response.status_code == 200
+    assert response.json()["community_commentary"][0]["source"] == "reddit"
+    mock_fetch.assert_not_awaited()
+    mock_store.assert_not_called()
 
 
 def test_trending_returns_songs():
@@ -584,3 +707,46 @@ def test_artist_by_name_returns_404_when_no_match():
     with patch("routes.songs.genius_service.search_artist_id_by_name", new_callable=AsyncMock, return_value=None):
         response = client.get("/artist/by-name/zzz")
     assert response.status_code == 404
+
+
+def test_status_returns_degraded_when_budget_exhausted():
+    with patch("routes.status.claude_budget.within_budget", return_value=False), \
+         patch("routes.status.claude_budget.remaining_usd", return_value=0.0), \
+         patch("routes.status.claude_budget.reset_date_iso", return_value="2026-08-01"):
+        response = client.get("/status")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["degraded"] is True
+    assert body["claude_budget"]["remaining_usd"] == 0.0
+    assert body["claude_budget"]["resets_on"] == "2026-08-01"
+
+
+def test_status_returns_healthy_when_budget_ok():
+    with patch("routes.status.claude_budget.within_budget", return_value=True), \
+         patch("routes.status.claude_budget.remaining_usd", return_value=15.42), \
+         patch("routes.status.claude_budget.reset_date_iso", return_value="2026-08-01"):
+        response = client.get("/status")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["degraded"] is False
+    assert body["claude_budget"]["remaining_usd"] == 15.42
+
+
+def test_get_similar_songs_returns_ranked_list():
+    similar = [
+        {"id": "s2", "title": "B", "artist": "X", "thumbnail": "a.jpg",
+         "tldr": "…", "shared_themes": ["grief"], "score": 5},
+    ]
+    with patch("routes.songs.supabase_service.find_similar_songs", return_value=similar):
+        response = client.get("/song/s1/similar")
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["id"] == "s2"
+    assert body[0]["shared_themes"] == ["grief"]
+
+
+def test_get_similar_songs_returns_empty_when_none_match():
+    with patch("routes.songs.supabase_service.find_similar_songs", return_value=[]):
+        response = client.get("/song/s1/similar")
+    assert response.status_code == 200
+    assert response.json() == []

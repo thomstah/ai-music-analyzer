@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { SearchResults, SearchResult, ArtistResult, AlbumSearchResult, Song } from '@/types/song';
 import { analyzeSong } from '@/lib/api';
 import Spinner from '@/components/Spinner';
+import AnalyzeProgressPill from '@/components/AnalyzeProgressPill';
 
 function SectionHeader({ label }: { label: string }) {
   return (
@@ -48,11 +49,20 @@ function SongRow({
   loading: boolean;
   onClick: () => void;
 }) {
+  if (loading) {
+    return (
+      <AnalyzeProgressPill
+        title={result.title}
+        artist={result.artist}
+        thumbnail={result.thumbnail}
+        compact
+      />
+    );
+  }
   return (
     <button
       onClick={onClick}
-      disabled={loading}
-      className="w-full flex items-center gap-4 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-60 rounded-lg px-4 py-3 transition-colors text-left"
+      className="w-full flex items-center gap-4 bg-neutral-900 hover:bg-neutral-800 rounded-lg px-4 py-3 transition-colors text-left"
     >
       {result.thumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -69,10 +79,13 @@ function SongRow({
       <div className="flex-1 min-w-0">
         <p className="text-white font-semibold truncate">{result.title}</p>
         <p className="text-neutral-400 text-sm truncate">{result.artist}</p>
+        {result.snippet && (
+          <p className="text-neutral-500 text-xs italic mt-1 line-clamp-2">
+            {result.snippet}
+          </p>
+        )}
       </div>
-      <div className="w-4 h-4 shrink-0 flex items-center justify-center">
-        {loading && <Spinner size="sm" />}
-      </div>
+      <div className="w-4 h-4 shrink-0" />
     </button>
   );
 }
@@ -86,11 +99,19 @@ function SongCard({
   loading: boolean;
   onClick: () => void;
 }) {
+  if (loading) {
+    return (
+      <AnalyzeProgressPill
+        title={result.title}
+        artist={result.artist}
+        thumbnail={result.thumbnail}
+      />
+    );
+  }
   return (
     <button
       onClick={onClick}
-      disabled={loading}
-      className="flex items-center gap-4 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-60 rounded-lg p-3 transition-colors text-left"
+      className="flex items-center gap-4 bg-neutral-900 hover:bg-neutral-800 rounded-lg p-3 transition-colors text-left"
     >
       {result.thumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -108,17 +129,17 @@ function SongCard({
         <p className="text-white font-semibold truncate">{result.title}</p>
         <p className="text-neutral-400 text-sm truncate">{result.artist}</p>
       </div>
-      <div className="w-4 h-4 shrink-0 flex items-center justify-center">
-        {loading && <Spinner size="sm" />}
-      </div>
+      <div className="w-4 h-4 shrink-0" />
     </button>
   );
 }
 
 function AlbumCard({ album }: { album: AlbumSearchResult }) {
+  const isDeezer = album.source === 'deezer';
+  const href = isDeezer ? `/album/deezer/${album.album_id}` : `/album/${album.album_id}`;
   return (
     <Link
-      href={`/album/${album.album_id}`}
+      href={href}
       className="flex items-center gap-4 bg-neutral-900 hover:bg-neutral-800 rounded-lg p-3 transition-colors"
     >
       {album.thumbnail ? (
@@ -138,6 +159,11 @@ function AlbumCard({ album }: { album: AlbumSearchResult }) {
         <p className="text-white font-semibold truncate">{album.name}</p>
         <p className="text-neutral-400 text-sm truncate">{album.artist}</p>
       </div>
+      {isDeezer && (
+        <span className="shrink-0 text-[10px] uppercase tracking-widest text-neutral-500 border border-neutral-700 rounded px-1.5 py-0.5">
+          Discover
+        </span>
+      )}
     </Link>
   );
 }

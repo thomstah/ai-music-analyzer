@@ -337,3 +337,116 @@ def search_cached_albums(query: str, limit: int = 5) -> list[dict]:
         if len(albums) >= limit:
             break
     return albums
+
+
+def search_cached_songs_by_lyric(query: str, limit: int = 5) -> list[dict]:
+    """Find analyzed songs whose stored lyrics contain the query phrase.
+    Returns [{title, artist, genius_id, thumbnail, snippet}] where `snippet`
+    is a short excerpt around the first match so the user sees why it hit."""
+    safe_query = "".join(c for c in query if c not in '",()').strip()
+    if not safe_query or len(safe_query) < 3:
+        return []
+    client = get_client()
+    pattern = f"%{safe_query}%"
+
+    result = (
+        client.table("songs")
+        .select("title, artist, genius_id, lyrics, metadata")
+        .ilike("lyrics", pattern)
+        .limit(50)
+        .execute()
+    )
+    rows = result.data or []
+    matches: list[dict] = []
+    q_lower = safe_query.lower()
+    for row in rows:
+        lyrics = row.get("lyrics") or ""
+        idx = lyrics.lower().find(q_lower)
+        if idx < 0:
+            continue
+        # Build a ~120-char snippet centered on the first match, snapped to line breaks.
+        start = max(0, idx - 40)
+        end = min(len(lyrics), idx + len(safe_query) + 80)
+        snippet = lyrics[start:end].strip().replace("\n", " · ")
+        if start > 0:
+            snippet = "…" + snippet
+        if end < len(lyrics):
+            snippet = snippet + "…"
+        meta = row.get("metadata") or {}
+        matches.append({
+            "title": row.get("title", ""),
+            "artist": row.get("artist", ""),
+            "genius_id": row.get("genius_id"),
+            "thumbnail": meta.get("album_art_url"),
+            "snippet": snippet,
+        })
+        if len(matches) >= limit:
+            break
+    return matches
+
+
+def find_similar_songs(song_id: str, limit: int = 3) -> list[dict]:
+    """Return up to `limit` analyzed songs most similar to `song_id`.
+
+    Scoring: +3 per shared theme, +1 same emotional_tone (ci), +2 same artist (ci).
+    Requires score >= 3 (at least one shared theme) so low-signal candidates drop.
+    Returned shape: [{id, title, artist, thumbnail, tldr, shared_themes, score}].
+    """
+    client = get_client()
+
+    ref_result = (
+        client.table("interpretations")
+        .select("content, songs(id, title, artist)")
+        .eq("song_id", song_id)
+        .limit(1)
+        .execute()
+    )
+    if not (ref_result.data or []):
+        return []
+    ref = ref_result.data[0]
+    ref_content = ref.get("content") or {}
+    ref_song = ref.get("songs") or {}
+    ref_themes = {t.strip().lower() for t in (ref_content.get("themes") or []) if isinstance(t, str)}
+    if not ref_themes:
+        return []
+    ref_tone = (ref_content.get("emotional_tone") or "").strip().lower()
+    ref_artist = (ref_song.get("artist") or "").strip().lower()
+
+    cand_result = (
+        client.table("interpretations")
+        .select("content, songs(id, title, artist, metadata)")
+        .neq("song_id", song_id)
+        .limit(10000)
+        .execute()
+    )
+
+    scored: list[tuple[int, dict]] = []
+    seen: set[str] = set()
+    for row in cand_result.data or []:
+        song = row.get("songs") or {}
+        sid = song.get("id")
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        content = row.get("content") or {}
+        themes = [t for t in (content.get("themes") or []) if isinstance(t, str)]
+        shared = [t for t in themes if t.strip().lower() in ref_themes]
+        if not shared:
+            continue
+        score = 3 * len(shared)
+        if (content.get("emotional_tone") or "").strip().lower() == ref_tone and ref_tone:
+            score += 1
+        if (song.get("artist") or "").strip().lower() == ref_artist and ref_artist:
+            score += 2
+        scored.append((score, {
+            "id": sid,
+            "title": song.get("title", ""),
+            "artist": song.get("artist", ""),
+            "thumbnail": (song.get("metadata") or {}).get("album_art_url"),
+            "tldr": content.get("tldr"),
+            "shared_themes": shared,
+            "score": score,
+        }))
+
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [entry for _, entry in scored[:limit]]

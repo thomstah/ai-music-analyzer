@@ -72,11 +72,37 @@ class ThemeSongResult(BaseModel):
     metadata: Optional[dict] = None
 
 
+class SimilarSong(BaseModel):
+    id: str
+    title: str
+    artist: str
+    thumbnail: Optional[str] = None
+    tldr: Optional[str] = None
+    shared_themes: list[str] = []
+    score: int
+
+
 class AlbumSearchResult(BaseModel):
-    album_id: int
+    album_id: int  # For source="cached": Genius album ID. For source="deezer": Deezer album ID.
     name: str
     artist: str
     thumbnail: Optional[str] = None
+    source: str = "cached"  # "cached" (Genius-linked, in our DB) or "deezer" (live from Deezer)
+
+
+class DeezerAlbumTrack(BaseModel):
+    deezer_id: int
+    title: str
+    artist_name: str
+
+
+class DeezerAlbumResponse(BaseModel):
+    deezer_id: int
+    title: str
+    artist: str
+    cover_url: Optional[str] = None
+    release_year: Optional[str] = None
+    tracks: list[DeezerAlbumTrack] = []
 
 
 class AlbumTrack(BaseModel):
@@ -94,6 +120,8 @@ class AlbumResponse(BaseModel):
     release_year: Optional[str] = None
     cover_art_url: Optional[str] = None
     producers: list[str] = []
+    description: Optional[str] = None
+    accent_color: Optional[str] = None
     tracklist: list[AlbumTrack] = []
 
 

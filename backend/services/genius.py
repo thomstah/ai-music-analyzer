@@ -161,13 +161,17 @@ async def get_song_details(genius_id: int) -> dict:
     producer = producers[0]["name"] if producers else None
 
     # Prefer the parent album's cover so the song page matches the album page.
-    # Fall back to the song's own promotional art (e.g. for standalone singles).
-    album_art = album.get("cover_art_url") or song.get("song_art_image_url")
+    # `song_art_image_url` is often user-uploaded promo art unrelated to the song
+    # (memes, sports photos, etc.), so we only offer it as a last-resort fallback
+    # to be tried after external sources like Deezer.
+    album_cover = album.get("cover_art_url")
+    song_art_fallback = song.get("song_art_image_url")
 
     return {
         "artist_id": (song.get("primary_artist") or {}).get("id"),
         "album_id": album.get("id"),
-        "album_art_url": album_art,
+        "album_art_url": album_cover,
+        "song_art_fallback_url": song_art_fallback,
         "album_name": album.get("name"),
         "release_year": release_year,
         "producer": producer,
@@ -219,6 +223,18 @@ async def get_album_details(album_id: int) -> dict:
             "thumbnail": song.get("song_art_image_thumbnail_url"),
         })
 
+    # Genius returns an "about" writeup in either album.description.plain or, more
+    # commonly, album.description_annotation.annotations[0].body.plain.
+    description = ""
+    desc_block = album.get("description")
+    if isinstance(desc_block, dict):
+        description = (desc_block.get("plain") or "").strip()
+    if not description:
+        ann = (album.get("description_annotation") or {}).get("annotations") or []
+        if ann:
+            body = ann[0].get("body") or {}
+            description = (body.get("plain") or "").strip()
+
     return {
         "genius_id": album.get("id"),
         "artist_id": (album.get("artist") or {}).get("id"),
@@ -227,6 +243,7 @@ async def get_album_details(album_id: int) -> dict:
         "release_year": release_year,
         "cover_art_url": album.get("cover_art_url"),
         "producers": producers,
+        "description": description or None,
         "tracklist": tracklist,
     }
 

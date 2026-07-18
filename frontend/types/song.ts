@@ -43,6 +43,8 @@ export interface Album {
   release_year: string | null;
   cover_art_url: string | null;
   producers: string[];
+  description?: string | null;
+  accent_color?: string | null;
   tracklist: AlbumTrack[];
 }
 
@@ -63,6 +65,7 @@ export interface SearchResult {
   artist: string;
   genius_id: number;
   thumbnail: string | null;
+  snippet?: string;
 }
 
 export interface ArtistResult {
@@ -76,6 +79,22 @@ export interface AlbumSearchResult {
   name: string;
   artist: string;
   thumbnail: string | null;
+  source?: 'cached' | 'deezer';
+}
+
+export interface DeezerAlbumTrack {
+  deezer_id: number;
+  title: string;
+  artist_name: string;
+}
+
+export interface DeezerAlbum {
+  deezer_id: number;
+  title: string;
+  artist: string;
+  cover_url: string | null;
+  release_year: string | null;
+  tracks: DeezerAlbumTrack[];
 }
 
 export interface SearchResults {
@@ -112,6 +131,16 @@ export interface ThemeSongResult {
   artist: string;
   tldr: string | null;
   metadata: SongMetadata | null;
+}
+
+export interface SimilarSong {
+  id: string;
+  title: string;
+  artist: string;
+  thumbnail: string | null;
+  tldr: string | null;
+  shared_themes: string[];
+  score: number;
 }
 
 export interface ArtistTopSong {

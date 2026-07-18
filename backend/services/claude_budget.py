@@ -4,7 +4,7 @@ Resets at the start of each calendar month (UTC). The tracker is purely in-memor
 so it resets when the backend restarts — acceptable for the MVP. Persist to a
 Supabase table later if drift becomes a problem.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 # Monthly cap, in USD. Tune by editing this constant.
 MONTHLY_BUDGET_USD = 20.0
@@ -44,3 +44,11 @@ def remaining_usd() -> float:
 def current_spend_usd() -> float:
     _reset_if_new_month()
     return _state["spend"]
+
+
+def reset_date_iso() -> str:
+    """ISO date the monthly budget resets — the 1st of next month, UTC."""
+    today = datetime.now(timezone.utc).date()
+    year = today.year + (1 if today.month == 12 else 0)
+    month = 1 if today.month == 12 else today.month + 1
+    return date(year, month, 1).isoformat()

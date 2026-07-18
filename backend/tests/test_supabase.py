@@ -180,3 +180,57 @@ def test_search_cached_albums_returns_empty_for_empty_query_after_sanitization()
         result = search_cached_albums(',,,"""')
     assert result == []
     mock_client.assert_not_called()
+
+
+def _sim_row(song_id, title, artist, themes, tone, tldr=None, art=None):
+    return {
+        "content": {"themes": themes, "emotional_tone": tone, "tldr": tldr},
+        "songs": {
+            "id": song_id,
+            "title": title,
+            "artist": artist,
+            "metadata": {"album_art_url": art},
+        },
+    }
+
+
+def test_find_similar_songs_scores_shared_themes_first():
+    from services.supabase import find_similar_songs
+
+    reference = _sim_row("s1", "A", "Artist X", ["grief", "memory"], "melancholy")
+    other_high = _sim_row("s2", "B", "Artist X", ["grief", "memory"], "melancholy")  # 3+3+1+2=9
+    other_mid = _sim_row("s3", "C", "Artist Y", ["grief"], "hopeful")               # 3
+    other_low = _sim_row("s4", "D", "Artist Z", ["joy"], "hopeful")                 # 0 (dropped)
+
+    ref_result = MagicMock(); ref_result.data = [reference]
+    cand_result = MagicMock(); cand_result.data = [other_high, other_mid, other_low]
+
+    ref_chain = MagicMock()
+    ref_chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = ref_result
+    cand_chain = MagicMock()
+    cand_chain.select.return_value.neq.return_value.limit.return_value.execute.return_value = cand_result
+
+    client = MagicMock()
+    client.table.side_effect = [ref_chain, cand_chain]
+
+    with patch("services.supabase.get_client", return_value=client):
+        results = find_similar_songs("s1", limit=3)
+
+    assert [r["id"] for r in results] == ["s2", "s3"]
+    assert results[0]["shared_themes"] == ["grief", "memory"]
+    assert results[1]["shared_themes"] == ["grief"]
+    assert results[0]["score"] > results[1]["score"]
+
+
+def test_find_similar_songs_returns_empty_when_reference_missing():
+    from services.supabase import find_similar_songs
+
+    ref_result = MagicMock(); ref_result.data = []
+    ref_chain = MagicMock()
+    ref_chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = ref_result
+
+    client = MagicMock()
+    client.table.return_value = ref_chain
+
+    with patch("services.supabase.get_client", return_value=client):
+        assert find_similar_songs("does-not-exist") == []

@@ -163,7 +163,9 @@ async def test_get_song_details_returns_metadata():
 
 
 @pytest.mark.asyncio
-async def test_get_song_details_falls_back_to_song_art_when_album_has_no_cover():
+async def test_get_song_details_exposes_song_art_only_as_fallback_when_album_missing():
+    """When no album cover exists, song_art_image_url is returned separately as a fallback,
+    not promoted to album_art_url — the route decides whether to use it after trying Deezer."""
     mock_response = MagicMock()
     mock_response.json.return_value = {
         "response": {
@@ -181,7 +183,8 @@ async def test_get_song_details_falls_back_to_song_art_when_album_has_no_cover()
         mock_cls.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
         result = await get_song_details(12345)
 
-    assert result["album_art_url"] == "https://images.genius.com/single-art.jpg"
+    assert result["album_art_url"] is None
+    assert result["song_art_fallback_url"] == "https://images.genius.com/single-art.jpg"
 
 
 @pytest.mark.asyncio

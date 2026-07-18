@@ -2,12 +2,13 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Song } from '@/types/song';
-import { getSongById, deepAnalyzeSong } from '@/lib/api';
+import { getSongById, deepAnalyzeSong, BudgetExhaustedError, RateLimitedError } from '@/lib/api';
 import LyricsPanel from '@/components/LyricsPanel';
-import AnalysisPanel from '@/components/AnalysisPanel';
-import Spinner from '@/components/Spinner';
+import AnalysisPanel, { DeepError } from '@/components/AnalysisPanel';
 import SongBanner from '@/components/SongBanner';
+import SongPageSkeleton from '@/components/SongPageSkeleton';
 import SongSectionNav, { SectionLink } from '@/components/SongSectionNav';
+import SimilarSongs from '@/components/SimilarSongs';
 
 function parseCachedSong(json: string): Song | null {
   try {
@@ -26,7 +27,7 @@ export default function SongPage() {
   const [song, setSong] = useState<Song | null>(null);
   const [loading, setLoading] = useState(true);
   const [deepLoading, setDeepLoading] = useState(false);
-  const [deepError, setDeepError] = useState<string | null>(null);
+  const [deepError, setDeepError] = useState<DeepError | null>(null);
 
   useEffect(() => {
     const cached = sessionStorage.getItem(`song-${id}`);
@@ -50,19 +51,23 @@ export default function SongPage() {
       setSong(updated);
       sessionStorage.setItem(`song-${updated.id}`, JSON.stringify(updated));
     } catch (err: unknown) {
-      setDeepError(err instanceof Error ? err.message : 'Something went wrong');
+      if (err instanceof BudgetExhaustedError) {
+        setDeepError({ kind: 'budget-out', resetsOn: err.resetsOn });
+      } else if (err instanceof RateLimitedError) {
+        setDeepError({ kind: 'rate-limited', retryAfter: err.retryAfterSeconds });
+      } else {
+        setDeepError({
+          kind: 'generic',
+          message: err instanceof Error ? err.message : 'Something went wrong',
+        });
+      }
     } finally {
       setDeepLoading(false);
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center gap-3 p-12 text-neutral-400 text-sm">
-        <Spinner />
-        <span>Loading song…</span>
-      </div>
-    );
+    return <SongPageSkeleton />;
   }
   if (!song) {
     return <div className="text-red-400 p-12 text-sm">Song not found.</div>;
@@ -107,10 +112,12 @@ export default function SongPage() {
           <AnalysisPanel
             interpretation={song.interpretation}
             commentary={song.community_commentary}
+            songId={song.id}
             onRequestDeepAnalysis={handleRequestDeep}
             deepAnalysisLoading={deepLoading}
             deepAnalysisError={deepError}
           />
+          <SimilarSongs songId={song.id} />
         </div>
         {/* Lyrics — secondary column, sticky on desktop */}
         <aside
