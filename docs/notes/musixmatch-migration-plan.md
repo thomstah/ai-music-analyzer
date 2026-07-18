@@ -166,7 +166,6 @@ For a small free portfolio project that stays small: indefinitely deferring is a
 
 ## Related files
 
-- [Business model brainstorm](./business-model-brainstorm.md) — Pricing tiers, auth, payments
+- [Cost-capped launch plan](./cost-capped-launch-plan.md) — Current direction; Musixmatch is out of scope while this holds
 - [Legal templates](./legal-templates.md) — Terms / Privacy / DMCA scaffolds
-- `backend/services/musixmatch.py` — Already wired, not wired into the analyze flow
-- `backend/services/genius.py` — `fetch_lyrics()` is the function to remove when migrating
+- `backend/services/genius.py` — `fetch_lyrics()` is the function to swap when migrating

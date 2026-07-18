@@ -250,4 +250,4 @@ These are starter templates for the three legal pages required before public/mon
 
 ## Related files
 
-- [Business model brainstorm](./business-model-brainstorm.md)
+- [Cost-capped launch plan](./cost-capped-launch-plan.md)

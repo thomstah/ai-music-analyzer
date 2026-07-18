@@ -2,7 +2,7 @@
 
 **Status:** Current operating plan. Captured 2026-06-30.
 
-This is the realistic shape for going public with Lyriq: free for everyone, capped Claude spending from the owner's pocket, optional tip jar to offset costs. No auth, no Stripe subscriptions, no tier code. The full freemium model in [business-model-brainstorm.md](./business-model-brainstorm.md) is preserved as a future option if traffic actually justifies it.
+This is the realistic shape for going public with Lyriq: free for everyone, capped Claude spending from the owner's pocket, optional tip jar to offset costs. No auth, no Stripe subscriptions, no tier code. If traffic ever justifies revisiting a full freemium / paywall model, that path is not documented here — start fresh.
 
 ---
 
@@ -37,7 +37,7 @@ This is the realistic shape for going public with Lyriq: free for everyone, capp
 | Item | Amount/mo |
 |---|---|
 | Supabase | Free tier (sufficient at this scale) |
-| Backend hosting (Railway/Render) | ~$5 |
+| Backend hosting (Railway Hobby) | ~$5 |
 | Domain | ~$1 (amortized) |
 | Stripe Payment Link or Ko-fi | $0 (no platform fees on the free model) |
 | **Total fixed** | **~$6** |
@@ -232,7 +232,7 @@ The analysis-first architecture already has the seam:
 - Add `subscription_tier` check in `/songs/{id}/deep-analyze` BEFORE the budget check:
   - If `free` and song not yet analyzed: 402 Payment Required
   - If `premium` or `beta`: proceed (subject to budget)
-- Stripe Checkout + Customer Portal as described in business-model-brainstorm.md
+- Stripe Checkout + Customer Portal wired to `subscription_tier`
 
 No fundamental refactor needed. The cost-capped phase is forward-compatible with a future paywall phase.
 
@@ -240,6 +240,5 @@ No fundamental refactor needed. The cost-capped phase is forward-compatible with
 
 ## Related files
 
-- [business-model-brainstorm.md](./business-model-brainstorm.md) — Deferred paywall plan, retained as future option
 - [musixmatch-migration-plan.md](./musixmatch-migration-plan.md) — Lyrics licensing path, triggered by traffic/legal needs
 - [legal-templates.md](./legal-templates.md) — ToS, Privacy, DMCA templates
