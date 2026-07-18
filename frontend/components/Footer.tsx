@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Footer() {
   return (
     <footer className="mt-16 border-t border-neutral-900">
@@ -26,6 +28,20 @@ export default function Footer() {
             Deezer
           </a>
           .
+        </p>
+        <p className="flex gap-4">
+          <Link
+            href="/terms"
+            className="text-neutral-400 hover:text-purple-400 underline underline-offset-2"
+          >
+            Terms of Service
+          </Link>
+          <Link
+            href="/privacy"
+            className="text-neutral-400 hover:text-purple-400 underline underline-offset-2"
+          >
+            Privacy Policy
+          </Link>
         </p>
       </div>
     </footer>

@@ -199,30 +199,42 @@ cd frontend && npx next build      # Production build verification
 - [x] `POST /songs/{id}/deep-analyze` runs Claude on demand
 - [x] Song page shows "Get deep analysis" CTA in basic mode
 
-### 🚧 Phase 9: Analysis-first refactor (planned)
-- [ ] Single-column long-read song page (replaces lyrics-left/analysis-right)
-- [ ] Lyrics behind a slide-in drawer (fetched on-demand, never cached)
-- [ ] Self-contained breakdown cards (quoted lyrics + commentary)
-- [ ] Updated Claude prompt requiring verbatim lyric quotes
-- [ ] Re-analyze stored songs under new prompt
+### ✅ Phase 9: Analysis-first refactor (complete)
+- [x] Analysis-primary side-by-side layout (wide analysis column, sticky lyrics column)
+- [x] Self-contained breakdown cards with verbatim-quoted lyrics + commentary
+- [x] Claude tool-use prompt requires verbatim lyric quotes
+- [x] `/admin/reanalyze-all` endpoint to re-run analyses under a new prompt
+
+### ✅ Phase 9.5: Discovery + launch-hardening (complete)
+- [x] "If you liked this" similar-songs recommendations on each song page
+- [x] Live Deezer album discovery (search + `/album/deezer/[id]` pages)
+- [x] Lyric-content search across the analyzed corpus (with match snippets)
+- [x] Shareable OG quote cards per breakdown (deep-link + Vercel OG image)
+- [x] Per-IP token-bucket rate limits on `/analyze` and `/deep-analyze`
+- [x] Client-side analyze progress states with rotating status messages
+- [x] Album page "About" section + accent-color background from cover art
+- [x] Song page accent-color background from cover art
+- [x] Reliable album art: Genius album cover → Deezer track cover → Genius song art fallback
 
 ### 🚧 Phase 10: Cost-capped public launch (planned)
-*Note: This is the current direction. Full freemium / auth / Stripe path is deferred — see [business-model-brainstorm.md](docs/notes/business-model-brainstorm.md).*
-- [ ] Switch Claude model from Sonnet to Haiku 4.5 (3× cost reduction)
-- [ ] Monthly Claude budget cap with `429 Too Many Requests` when exceeded
+*Note: This is the current direction. A full freemium / auth / Stripe path is not documented; if traffic ever justifies it, revisit fresh.*
+- [x] Switch Claude model from Sonnet to Haiku 4.5 (3× cost reduction)
+- [x] Monthly Claude budget cap — returns 402 with reset date when exhausted
+- [x] `GET /status` endpoint + global degraded pill above navbar for budget-out state
+- [x] Warm inline card on analyze CTA for `budget-out` / `rate-limited` errors
+- [x] AI-generated content disclaimer in footer
+- [x] "Lyrics from Genius" attribution in footer
 - [ ] Pre-seed corpus with ~200 popular pre-analyzed songs (one-time)
-- [ ] Tip jar link in footer (Stripe Payment Link or Ko-fi, no-quid-pro-quo wording)
-- [ ] Terms of Service + Privacy Policy pages live
+- [ ] Tip jar link in footer (deferred until launch-ready)
+- [x] Terms of Service + Privacy Policy pages live at `/terms` and `/privacy` (draft, pending final email + counsel review)
 - [ ] DMCA designated agent registered with US Copyright Office
-- [ ] AI-generated content disclaimer visible near every analysis
-- [ ] "Lyrics from Genius" attribution
 - [ ] Cookie consent banner (EU compliance)
-- [ ] Production hosting (Railway/Render backend, Vercel frontend)
+- [ ] Production hosting (Railway backend, Vercel frontend)
 - [ ] LinkedIn / social share
 
 ### 🔮 Phase 11: Scale-driven follow-ups (triggered by demand, not pre-built)
 - [ ] **If** monthly budget cap is hit consistently → Musixmatch lyrics migration (see [migration plan](docs/notes/musixmatch-migration-plan.md))
-- [ ] **If** sustained traffic / tip income → consider subscription tier (see [deferred business model](docs/notes/business-model-brainstorm.md))
+- [ ] **If** sustained traffic / tip income → consider a subscription tier (design fresh at that point)
 - [ ] **If** press / serious attention → trademark search on "Lyriq", brand site, analytics
 
 ### 💡 Future ideas
@@ -239,10 +251,9 @@ cd frontend && npx next build      # Production build verification
 
 Internal planning and reference docs live under `docs/`:
 
-- **[`docs/superpowers/specs/`](docs/superpowers/specs/)** — Design specs for each major feature
-- **[`docs/superpowers/plans/`](docs/superpowers/plans/)** — Step-by-step implementation plans
+- **[`docs/superpowers/plans/`](docs/superpowers/plans/)** — Step-by-step implementation plans (active)
+- **[`docs/superpowers/archive/`](docs/superpowers/archive/)** — Completed plans and their specs
 - **[`docs/notes/cost-capped-launch-plan.md`](docs/notes/cost-capped-launch-plan.md)** — **Current direction.** Free-for-all launch with monthly Claude budget cap + optional tip jar
-- **[`docs/notes/business-model-brainstorm.md`](docs/notes/business-model-brainstorm.md)** — Deferred full freemium / auth / Stripe path, kept as future option
 - **[`docs/notes/musixmatch-migration-plan.md`](docs/notes/musixmatch-migration-plan.md)** — Lyrics licensing migration, triggered by traffic/legal needs
 - **[`docs/notes/legal-templates.md`](docs/notes/legal-templates.md)** — Drafts for Terms of Service, Privacy Policy, DMCA notice (require attorney review before publishing)
 
